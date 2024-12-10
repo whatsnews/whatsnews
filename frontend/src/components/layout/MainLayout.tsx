@@ -14,7 +14,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   return (
     <div className="flex h-screen bg-background">
       {/* Desktop Sidebar */}
-      <div className="hidden w-80 md:block">
+      <div className="hidden md:block">
         <Sidebar />
       </div>
 

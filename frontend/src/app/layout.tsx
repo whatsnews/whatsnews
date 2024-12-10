@@ -1,4 +1,4 @@
-import { MainLayout } from '@/components/layout/MainLayout';
+// src/app/layout.tsx
 import type { Metadata } from 'next';
 import { Source_Sans_3 } from 'next/font/google';
 import './globals.css';
@@ -18,7 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={sourceSans3.className}>
-        <MainLayout>{children}</MainLayout>
+        {children}
       </body>
     </html>
   );
