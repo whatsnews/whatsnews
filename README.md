@@ -4,7 +4,7 @@
 
 WhatsNews is an intelligent news aggregation and summarization platform that uses LLMs to provide personalized news digests based on custom prompts. It consolidates news from various sources and presents them in a way that matters to you.
 
-![logo](https://github.com/user-attachments/assets/eb886882-ffe3-444c-946c-a57856497371)
+![rect8](https://github.com/user-attachments/assets/970c62c5-b635-438f-a65a-da435b75a8cc)
 
 
 ## 🚀 Features (Planned/In Development)
