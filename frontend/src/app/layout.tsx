@@ -3,7 +3,10 @@ import type { Metadata } from 'next';
 import { Source_Sans_3 } from 'next/font/google';
 import './globals.css';
 
-const sourceSans3 = Source_Sans_3({ subsets: ['latin'] });
+const sourceSans3 = Source_Sans_3({ 
+  subsets: ['latin'],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'WhatsNews',
@@ -16,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={sourceSans3.className}>
         {children}
       </body>
