@@ -1,0 +1,25 @@
+import { MainLayout } from '@/components/layout/MainLayout';
+import type { Metadata } from 'next';
+import { Source_Sans_3 } from 'next/font/google';
+import './globals.css';
+
+const sourceSans3 = Source_Sans_3({ subsets: ['latin'] });
+
+export const metadata: Metadata = {
+  title: 'WhatsNews',
+  description: 'News aggregation and summarization platform using LLM',
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body className={sourceSans3.className}>
+        <MainLayout>{children}</MainLayout>
+      </body>
+    </html>
+  );
+}
