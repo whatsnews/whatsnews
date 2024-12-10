@@ -38,50 +38,6 @@ WhatsNews is in early development. Here's what's working and what's not:
 ❌ Frontend Development  
 ❌ User Authentication  
 
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Python 3.9+
-- PostgreSQL
-- Virtual Environment
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/whatsnews.git
-cd whatsnews
-
-# Create and activate virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Create environment file
-cp .env.example .env
-# Edit .env with your configurations
-
-# Run migrations
-alembic upgrade head
-
-# Start the development server
-uvicorn app.main:app --reload
-```
-
-## 🤝 Contributing
-
-We're excited to have you contribute! Please take a look at our contributing guidelines (coming soon) before submitting a pull request.
-
-### Development Setup
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
 
 ## 📝 License
 
@@ -90,7 +46,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ```
 MIT License
 
-Copyright (c) 2024 WhatsNews
+Copyright (c) 2024 Nair Koroth
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
