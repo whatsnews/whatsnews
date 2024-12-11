@@ -32,11 +32,11 @@ WhatsNews is in early development. Here's what's working and what's not:
 ✅ Project Structure  
 ✅ Basic Architecture Design  
 ⏳ FastAPI Backend (In Progress)  
-⏳ Database Models (In Progress)  
-❌ LLM Integration  
-❌ RSS Feed Integration  
-❌ Frontend Development  
-❌ User Authentication  
+✅ Database Models (In Progress)  
+⏳ LLM Integration  
+⏳ RSS Feed Integration  
+⏳ Frontend Development  
+✅ User Authentication  
 
 
 ## 📝 License
