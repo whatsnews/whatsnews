@@ -4,8 +4,9 @@ from sqlalchemy.orm import relationship
 from app.models.base import TimestampedModel
 import enum
 
+
 class UpdateFrequency(str, enum.Enum):
-    THIRTY_MINUTES = "30_minutes"  # Changed from TEN_MINUTES
+    THIRTY_MINUTES = "30_minutes"  # This is how it's stored in DB
     HOURLY = "hourly"
     DAILY = "daily"
 
