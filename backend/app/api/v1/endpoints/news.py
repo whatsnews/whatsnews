@@ -1,3 +1,4 @@
+# app/api/v1/endpoints/news.py
 from typing import List, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.orm import Session
@@ -24,7 +25,6 @@ async def create_news(
     """
     Create new news generation task.
     """
-    # Verify prompt exists and belongs to user
     prompt = db.query(Prompt).filter(
         Prompt.id == news_in.prompt_id,
         Prompt.user_id == current_user.id
@@ -37,11 +37,8 @@ async def create_news(
 
     news_service = NewsService(db)
     rss_service = RSSService()
-
-    # Fetch RSS feeds
     feeds = await rss_service.fetch_feeds()
-
-    # Generate news in background
+    
     background_tasks.add_task(
         news_service.generate_news,
         prompt_id=news_in.prompt_id,
@@ -50,7 +47,7 @@ async def create_news(
     )
 
     return {
-        "id": 0,  # Placeholder ID
+        "id": 0,
         "title": f"News generation started for {prompt.name}",
         "content": "Processing...",
         "frequency": news_in.frequency,
@@ -65,7 +62,7 @@ async def get_news(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
     prompt_id: Optional[int] = None,
-    frequency: Optional[UpdateFrequency] = None,
+    frequency: Optional[str] = Query(None, regex="^(30_minutes|hourly|daily)$"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100)
 ) -> Any:
@@ -75,7 +72,6 @@ async def get_news(
     query = db.query(News)
 
     if prompt_id:
-        # Verify prompt belongs to user
         prompt = db.query(Prompt).filter(
             Prompt.id == prompt_id,
             Prompt.user_id == current_user.id
@@ -88,14 +84,18 @@ async def get_news(
         query = query.filter(News.prompt_id == prompt_id)
 
     if frequency:
-        query = query.filter(News.frequency == frequency)
+        try:
+            freq_value = {
+                "30_minutes": "30_MINUTES",
+                "hourly": "HOURLY",
+                "daily": "DAILY"
+            }[frequency.lower()]
+            query = query.filter(News.frequency == freq_value)
+        except KeyError:
+            raise HTTPException(status_code=400, detail="Invalid frequency value")
 
-    # Join with prompts to filter by user
     query = query.join(Prompt).filter(Prompt.user_id == current_user.id)
-    
-    # Order by latest first
     query = query.order_by(News.created_at.desc())
-    
     news_items = query.offset(skip).limit(limit).all()
     return news_items
 
@@ -146,18 +146,30 @@ async def delete_news(
 @router.get("/latest/{prompt_id}", response_model=NewsSchema)
 async def get_latest_news(
     prompt_id: int,
-    frequency: UpdateFrequency,
+    frequency: str = Query(..., regex="^(30_minutes|hourly|daily)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ) -> Any:
     """
     Get latest news for a specific prompt and frequency.
     """
-    # Verify prompt belongs to user
+    # Map API frequency values to database enum values
+    freq_map = {
+        "30_minutes": "30_MINUTES",
+        "hourly": "HOURLY",
+        "daily": "DAILY"
+    }
+    
+    try:
+        db_frequency = freq_map[frequency.lower()]
+    except KeyError:
+        raise HTTPException(status_code=400, detail="Invalid frequency value")
+
     prompt = db.query(Prompt).filter(
         Prompt.id == prompt_id,
         Prompt.user_id == current_user.id
     ).first()
+    
     if not prompt:
         raise HTTPException(
             status_code=404,
@@ -166,7 +178,7 @@ async def get_latest_news(
 
     news = db.query(News).filter(
         News.prompt_id == prompt_id,
-        News.frequency == frequency
+        News.frequency == db_frequency
     ).order_by(News.created_at.desc()).first()
 
     if not news:

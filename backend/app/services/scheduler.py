@@ -52,18 +52,22 @@ class NewsScheduler:
             
             await asyncio.sleep(interval_minutes * 60)
 
+    async def _delayed_start(self, frequency: UpdateFrequency, interval_minutes: int, initial_delay: int):
+        await asyncio.sleep(initial_delay)
+        await self._schedule_task(frequency, interval_minutes)
+
     async def start(self):
         self.running = True
         
-        # Schedule tasks for different frequencies
+        # Schedule tasks for different frequencies with staggered starts
         tasks = [
-        self._schedule_task(UpdateFrequency.THIRTY_MINUTES, 30),  # Changed from 10 to 30
-        self._schedule_task(UpdateFrequency.HOURLY, 60),
-        self._schedule_task(UpdateFrequency.DAILY, 1440)
+            asyncio.create_task(self._delayed_start(UpdateFrequency.THIRTY_MINUTES, 30, initial_delay=0)),
+            asyncio.create_task(self._delayed_start(UpdateFrequency.HOURLY, 60, initial_delay=20)),
+            asyncio.create_task(self._delayed_start(UpdateFrequency.DAILY, 1440, initial_delay=40))
         ]
         
         # Store tasks
-        self._tasks.update(asyncio.create_task(task) for task in tasks)
+        self._tasks.update(tasks)
         
         logger.info("News scheduler started")
 
