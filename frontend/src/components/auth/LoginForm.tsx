@@ -61,8 +61,12 @@ export function LoginForm() {
       }
 
       const data = await response.json();
+      
+      // Set token in cookie
       document.cookie = `token=${data.access_token}; path=/; max-age=86400; samesite=lax`;
-      router.push('/prompts/technology');
+      
+      // Redirect to dashboard
+      router.push('/prompts/1');
       router.refresh();
     } catch (error) {
       console.error('Login error:', error);

@@ -1,20 +1,50 @@
 // src/components/layout/MainLayout.tsx
 "use client";
 
-import { ReactNode, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Menu } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-interface MainLayoutProps {
-  children: ReactNode;
-}
+export function MainLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-export function MainLayout({ children }: MainLayoutProps) {
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('token='))
+        ?.split('=')[1];
+
+      if (!token) {
+        router.push('/login');
+      } else {
+        setIsAuthenticated(true);
+      }
+      setIsLoading(false);
+    };
+
+    checkAuth();
+  }, [router]);
+
+  if (isLoading || !isAuthenticated) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-background">
+        <div className="space-y-4 text-center">
+          <h1 className="text-2xl font-semibold text-primary">whats news.</h1>
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-background">
       {/* Desktop Sidebar */}
-      <div className="hidden md:block">
+      <div className="hidden md:block w-80">
         <Sidebar />
       </div>
 
@@ -37,9 +67,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto md:pt-0 pt-16">
-        <div className="container p-6">
-          {children}
-        </div>
+        {children}
       </main>
     </div>
   );

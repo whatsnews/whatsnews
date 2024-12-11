@@ -3,15 +3,13 @@
 
 import { useEffect, useState } from "react";
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   Settings, 
   MessageSquareText,
   Newspaper,
   LogOut
 } from 'lucide-react';
-
-import { useRouter } from 'next/navigation'; // Add this import
 
 interface Prompt {
   id: number;
@@ -44,10 +42,10 @@ const bottomNav: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
   useEffect(() => {
     const fetchPrompts = async () => {
@@ -86,9 +84,7 @@ export function Sidebar() {
   }, []);
 
   const handleLogout = () => {
-    // Clear the token cookie
     document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
-    // Redirect to login page
     router.push('/login');
     router.refresh();
   };
@@ -156,9 +152,7 @@ export function Sidebar() {
         {bottomNav.map((item) => (
           <NavLink key={item.title} item={item} />
         ))}
-      </div>
-
-      <button
+        <button
           onClick={handleLogout}
           className="flex items-center gap-x-3 px-4 py-2.5 text-base rounded-md transition-all
             w-full text-foreground/70 hover:bg-primary/5 hover:text-primary/90"
@@ -166,6 +160,7 @@ export function Sidebar() {
           <LogOut className="h-5 w-5" />
           <span>Logout</span>
         </button>
+      </div>
     </div>
   );
 }
