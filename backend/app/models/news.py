@@ -5,7 +5,7 @@ from app.models.base import TimestampedModel
 import enum
 
 class UpdateFrequency(str, enum.Enum):
-    TEN_MINUTES = "10_minutes"
+    THIRTY_MINUTES = "30_minutes"  # Changed from TEN_MINUTES
     HOURLY = "hourly"
     DAILY = "daily"
 

@@ -23,8 +23,8 @@ class NewsService:
     ) -> str:
         now = datetime.now(timezone.utc)
         
-        if frequency == UpdateFrequency.TEN_MINUTES:
-            cutoff = now - timedelta(minutes=10)
+        if frequency == UpdateFrequency.THIRTY_MINUTES:  # Changed
+            cutoff = now - timedelta(minutes=30)  # Changed
         elif frequency == UpdateFrequency.HOURLY:
             cutoff = now - timedelta(hours=1)
         else:  # DAILY

@@ -12,9 +12,34 @@ class RSSService:
     def __init__(self):
         # Example RSS feeds - you can extend this list
         self.feeds = [
+            # Global News
             "http://rss.cnn.com/rss/cnn_topstories.rss",
             "http://feeds.bbci.co.uk/news/rss.xml",
-            "https://feeds.a.dj.com/rss/RSSWorldNews.xml"
+            "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
+            "https://www.npr.org/rss/rss.php?id=1004",  # NPR World News
+            "https://www.reuters.com/rssFeed/worldNews",  # Reuters World News
+            "https://www.aljazeera.com/xml/rss/all.xml",  # Al Jazeera English
+            "https://www.euronews.com/rss?level=theme&name=news",  # Euronews Global
+
+            # India News
+            "https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms",  # Times of India - Top Stories
+            "https://www.hindustantimes.com/rss/topnews/rssfeed.xml",  # Hindustan Times - Top News
+            "https://www.thehindu.com/news/national/feeder/default.rss",  # The Hindu - National News
+            "https://indianexpress.com/section/india/feed/",  # The Indian Express - India News
+            "https://www.ndtv.com/rss",  # NDTV News
+
+            # Asia News
+            "https://www.scmp.com/rss/318208/feed",  # South China Morning Post - Asia News
+            "https://asia.nikkei.com/rss/feed",  # Nikkei Asia
+            "https://www.channelnewsasia.com/rssfeeds/8395986",  # Channel News Asia
+            "https://www.koreatimes.co.kr/www/rss/nation.xml",  # The Korea Times
+            "https://www.japantimes.co.jp/news_category/national/feed/",  # The Japan Times - National News
+            "https://vietnamnews.vn/rss/",  # Vietnam News
+            "https://www.bangkokpost.com/rss/data",  # Bangkok Post - General News
+
+            # Additional Global News
+            "https://www.nytimes.com/services/xml/rss/nyt/World.xml",  # New York Times - World News
+            "https://www.washingtonpost.com/rss/world",  # Washington Post - World News
         ]
 
     async def fetch_feed(self, session: aiohttp.ClientSession, url: str) -> Dict[str, Any]:
@@ -60,6 +85,8 @@ class NewsService:
         self.db = db
         self.llm_service = LLMService()
 
+
+
     def _filter_feeds_by_time(
         self,
         feeds: List[Dict[str, Any]],
@@ -67,8 +94,8 @@ class NewsService:
     ) -> List[Dict[str, Any]]:
         now = datetime.utcnow()
         
-        if frequency == UpdateFrequency.TEN_MINUTES:
-            cutoff = now - timedelta(minutes=10)
+        if frequency == UpdateFrequency.THIRTY_MINUTES:  # Changed
+            cutoff = now - timedelta(minutes=30)  # Changed
         elif frequency == UpdateFrequency.HOURLY:
             cutoff = now - timedelta(hours=1)
         else:  # DAILY

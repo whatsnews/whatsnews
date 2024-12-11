@@ -1,9 +1,10 @@
 // src/app/(dashboard)/prompts/[id]/page.tsx
 "use client";
 
-import { Card } from "@/components/ui/card";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import { NewsCard, NewsCardSkeleton } from "@/components/news/NewsCard";
+import { News, UpdateFrequency, frequencyMap } from "@/types/news";
 
 interface Prompt {
   id: number;
@@ -14,37 +15,18 @@ interface Prompt {
   updated_at: string;
 }
 
-interface NewsItem {
-  type: string;
-  timestamp: string;
-  title: string;
-  content: string;
-}
-
-const mockNews: NewsItem[] = [
-  {
-    type: "10 minutes (type of generation)",
-    timestamp: "1:20pm 10 Dec 24 (generated time and date)",
-    title: "News Headline",
-    content: "Summarized news goes here....."
-  },
-  {
-    type: "10 minutes (type of generation)",
-    timestamp: "1:10pm 10 Dec 24 (generated time and date)",
-    title: "Another News Headline",
-    content: "More summarized news content..."
-  }
-];
-
 export default function PromptPage() {
   const params = useParams();
   const promptId = params.id;
   const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const [news, setNews] = useState<News[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isNewsLoading, setIsNewsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState("10 minutes");
-  const filters = ["All News", "10 minutes", "Hourly", "Daily"];
+  const [activeFilter, setActiveFilter] = useState("30 minutes");
+  const filters = ["All News", "30 minutes", "Hourly", "Daily"];
 
+  // Fetch prompt details
   useEffect(() => {
     const fetchPrompt = async () => {
       try {
@@ -83,13 +65,74 @@ export default function PromptPage() {
     }
   }, [promptId]);
 
+  // Fetch news based on prompt and filter
+  useEffect(() => {
+    const fetchNews = async () => {
+      setIsNewsLoading(true);
+      try {
+        const token = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('token='))
+          ?.split('=')[1];
+
+        if (!token) {
+          throw new Error('No authentication token found');
+        }
+
+        // Convert filter to API frequency format
+        const frequency = frequencyMap[activeFilter as keyof typeof frequencyMap];
+        
+        // Use the news endpoint with query parameters
+        const url = new URL('http://localhost:8000/api/v1/news/');
+        url.searchParams.append('prompt_id', promptId as string);
+        if (frequency) {
+          url.searchParams.append('frequency', frequency);
+        }
+        url.searchParams.append('skip', '0');
+        url.searchParams.append('limit', '100');
+
+        const response = await fetch(url.toString(), {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'accept': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch news');
+        }
+
+        const data = await response.json();
+        // Sort news by created_at in descending order
+        const sortedNews = data.sort((a: News, b: News) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setNews(sortedNews);
+      } catch (err) {
+        console.error('Error fetching news:', err);
+        setNews([]);
+      } finally {
+        setIsNewsLoading(false);
+      }
+    };
+
+    if (promptId && !isLoading && !error) {
+      fetchNews();
+    }
+  }, [promptId, activeFilter, isLoading, error]);
+
   if (isLoading) {
     return (
       <div className="p-6">
         <div className="h-6 w-48 bg-muted animate-pulse rounded mb-8"></div>
-        <div className="space-y-4">
-          <div className="h-32 bg-muted animate-pulse rounded"></div>
-          <div className="h-32 bg-muted animate-pulse rounded"></div>
+        <div className="flex gap-3 mt-6">
+          {filters.map((_, i) => (
+            <div key={i} className="h-9 w-24 bg-muted animate-pulse rounded-md"></div>
+          ))}
+        </div>
+        <div className="space-y-4 mt-8">
+          <NewsCardSkeleton />
+          <NewsCardSkeleton />
         </div>
       </div>
     );
@@ -131,24 +174,20 @@ export default function PromptPage() {
 
       {/* News Feed */}
       <div className="space-y-4">
-        {mockNews.map((news, index) => (
-          <Card key={index} className="p-6 bg-white border border-border/50 shadow-sm hover:shadow-md transition-shadow">
-            <div className="space-y-1 mb-4">
-              <p className="text-sm text-primary/70">
-                {news.type}
-              </p>
-              <p className="text-sm text-foreground/50">
-                {news.timestamp}
-              </p>
-            </div>
-            <h3 className="text-xl text-foreground/90 font-medium mb-2">
-              {news.title}
-            </h3>
-            <p className="text-foreground/70 leading-relaxed">
-              {news.content}
-            </p>
-          </Card>
-        ))}
+        {isNewsLoading ? (
+          <>
+            <NewsCardSkeleton />
+            <NewsCardSkeleton />
+          </>
+        ) : news.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8">
+            No news available for this filter
+          </div>
+        ) : (
+          news.map((item) => (
+            <NewsCard key={item.id} news={item} />
+          ))
+        )}
       </div>
     </div>
   );

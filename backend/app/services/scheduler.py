@@ -57,9 +57,9 @@ class NewsScheduler:
         
         # Schedule tasks for different frequencies
         tasks = [
-            self._schedule_task(UpdateFrequency.TEN_MINUTES, 10),
-            self._schedule_task(UpdateFrequency.HOURLY, 60),
-            self._schedule_task(UpdateFrequency.DAILY, 1440)
+        self._schedule_task(UpdateFrequency.THIRTY_MINUTES, 30),  # Changed from 10 to 30
+        self._schedule_task(UpdateFrequency.HOURLY, 60),
+        self._schedule_task(UpdateFrequency.DAILY, 1440)
         ]
         
         # Store tasks

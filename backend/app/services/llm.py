@@ -16,7 +16,7 @@ class LLMService:
 
     def _create_system_prompt(self, frequency: UpdateFrequency) -> str:
         time_window = {
-            UpdateFrequency.TEN_MINUTES: "the last 10 minutes",
+            UpdateFrequency.THIRTY_MINUTES: "the last 30 minutes",
             UpdateFrequency.HOURLY: "the last hour",
             UpdateFrequency.DAILY: "the last 24 hours"
         }[frequency]

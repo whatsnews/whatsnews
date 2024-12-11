@@ -3,6 +3,8 @@
 
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 export default function Error({
   error,
@@ -17,12 +19,16 @@ export default function Error({
 
   return (
     <div className="p-6">
-      <div className="text-destructive mb-4">
-        Something went wrong loading this prompt.
-      </div>
+      <Alert variant="destructive" className="mb-6">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Failed to load prompt news. Please try again.
+        </AlertDescription>
+      </Alert>
       <Button
         onClick={() => reset()}
         variant="outline"
+        className="hover:bg-primary/5"
       >
         Try again
       </Button>
