@@ -40,6 +40,9 @@ class RSSService:
             # Additional Global News
             "https://www.nytimes.com/services/xml/rss/nyt/World.xml",  # New York Times - World News
             "https://www.washingtonpost.com/rss/world",  # Washington Post - World News
+
+            # Technology News
+            "http://rss.slashdot.org/Slashdot/slashdotMain"
         ]
 
     async def fetch_feed(self, session: aiohttp.ClientSession, url: str) -> Dict[str, Any]:

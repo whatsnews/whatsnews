@@ -25,10 +25,12 @@ class LLMService:
 Follow these guidelines:
 1. Focus on the most important and relevant information
 2. Maintain objectivity and journalistic standards
-3. Organize information logically and clearly
-4. Include relevant context when necessary
-5. Use professional language and tone
-6. Follow the user's prompt requirements exactly"""
+3. Report in an entertaining and engaging tone or voice
+4. Organize information logically and clearly
+5. Include relevant context when necessary
+6. Use professional language and tone
+7. Follow the user's prompt requirements exactly
+8. Select one or two people, places or events in the consolidated news and provide relevant did you know facts about the same"""
 
     async def generate_summary(
         self,
