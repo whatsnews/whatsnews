@@ -1,7 +1,6 @@
-# app/api/v1/endpoints/users.py
 import logging
 from typing import List, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.core.database import get_db
@@ -10,6 +9,7 @@ from app.schemas.user import UserCreate, User as UserSchema, UserUpdate
 from app.core.security import get_password_hash
 from app.core.auth import get_current_active_superuser, get_current_active_user
 from app.config.settings import get_settings
+import pytz
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -37,6 +37,9 @@ async def create_init_superuser(
             email=user_in.email,
             username=user_in.username,
             hashed_password=get_password_hash(user_in.password),
+            timezone="UTC",  # Default timezone
+            news_generation_hour_1=6,  # Default 6 AM
+            news_generation_hour_2=18,  # Default 6 PM
             is_active=True,
             is_superuser=True  # Force superuser
         )
@@ -80,11 +83,22 @@ async def create_user(
                 detail="Email already registered"
             )
         
+        # Validate timezone if provided
+        timezone = user_in.timezone if user_in.timezone else "UTC"
+        if timezone not in pytz.all_timezones:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid timezone"
+            )
+        
         # Create new user
         user = User(
             email=user_in.email,
             username=user_in.username,
             hashed_password=get_password_hash(user_in.password),
+            timezone=timezone,
+            news_generation_hour_1=user_in.news_generation_hour_1 if user_in.news_generation_hour_1 is not None else 6,
+            news_generation_hour_2=user_in.news_generation_hour_2 if user_in.news_generation_hour_2 is not None else 18,
             is_active=user_in.is_active,
             is_superuser=user_in.is_superuser
         )
@@ -129,12 +143,43 @@ async def update_user_me(
     Update current user.
     """
     try:
+        # Update password if provided
         if user_in.password is not None:
             current_user.hashed_password = get_password_hash(user_in.password)
+        
+        # Update email if provided
         if user_in.email is not None:
             current_user.email = user_in.email
+        
+        # Update username if provided
         if user_in.username is not None:
             current_user.username = user_in.username
+            
+        # Update timezone if provided
+        if user_in.timezone is not None:
+            if user_in.timezone not in pytz.all_timezones:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid timezone"
+                )
+            current_user.timezone = user_in.timezone
+            
+        # Update news generation hours if provided
+        if user_in.news_generation_hour_1 is not None:
+            if not 0 <= user_in.news_generation_hour_1 <= 23:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="News generation hour 1 must be between 0 and 23"
+                )
+            current_user.news_generation_hour_1 = user_in.news_generation_hour_1
+            
+        if user_in.news_generation_hour_2 is not None:
+            if not 0 <= user_in.news_generation_hour_2 <= 23:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="News generation hour 2 must be between 0 and 23"
+                )
+            current_user.news_generation_hour_2 = user_in.news_generation_hour_2
         
         db.add(current_user)
         db.commit()
@@ -157,6 +202,13 @@ async def update_user_me(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error updating user"
         )
+
+@router.get("/timezones", response_model=List[str])
+async def list_available_timezones() -> Any:
+    """
+    Get list of available timezones.
+    """
+    return pytz.all_timezones
 
 @router.get("/{user_id}", response_model=UserSchema)
 async def read_user_by_id(
@@ -193,7 +245,7 @@ async def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser)
-) -> None:
+) -> Any:
     """
     Delete user. Only for superusers.
     """
@@ -208,6 +260,7 @@ async def delete_user(
         db.delete(user)
         db.commit()
         logger.info(f"Deleted user: {user.email}")
+        return {"status": "success", "message": f"User {user.email} deleted"}
     except Exception as e:
         db.rollback()
         logger.error(f"Error deleting user: {str(e)}")

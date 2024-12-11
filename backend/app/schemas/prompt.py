@@ -1,11 +1,13 @@
-# app/schemas/prompt.py
-from typing import Optional
 from pydantic import BaseModel
-from datetime import datetime
+from typing import Optional
+from app.schemas.base import TimestampedSchema
+from app.models.prompt import TemplateType
 
 class PromptBase(BaseModel):
     name: str
     content: str
+    template_type: TemplateType
+    custom_template: Optional[str] = None
 
 class PromptCreate(PromptBase):
     pass
@@ -13,12 +15,9 @@ class PromptCreate(PromptBase):
 class PromptUpdate(BaseModel):
     name: Optional[str] = None
     content: Optional[str] = None
+    template_type: Optional[TemplateType] = None
+    custom_template: Optional[str] = None
 
-class Prompt(PromptBase):
+class Prompt(PromptBase, TimestampedSchema):
     id: int
     user_id: int
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True

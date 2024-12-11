@@ -1,8 +1,8 @@
-"""initial_setup
+"""fresh_start
 
-Revision ID: 68897f99204a
+Revision ID: 638fab0c4db8
 Revises: 
-Create Date: 2024-12-11 16:12:16.143820
+Create Date: 2024-12-11 21:05:42.806341
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic
-revision = '68897f99204a'
+revision = '638fab0c4db8'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -23,6 +23,9 @@ def upgrade():
     sa.Column('email', sa.String(), nullable=False),
     sa.Column('username', sa.String(), nullable=False),
     sa.Column('hashed_password', sa.String(), nullable=False),
+    sa.Column('timezone', sa.String(), nullable=False),
+    sa.Column('news_generation_hour_1', sa.Integer(), nullable=False),
+    sa.Column('news_generation_hour_2', sa.Integer(), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=True),
     sa.Column('is_superuser', sa.Boolean(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -36,6 +39,8 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(), nullable=False),
     sa.Column('content', sa.Text(), nullable=False),
+    sa.Column('template_type', sa.Enum('SUMMARY', 'ANALYSIS', 'BULLET_POINTS', 'NARRATIVE', name='templatetype'), nullable=False),
+    sa.Column('custom_template', sa.Text(), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -47,7 +52,7 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('title', sa.String(), nullable=False),
     sa.Column('content', sa.Text(), nullable=False),
-    sa.Column('frequency', sa.Enum('THIRTY_MINUTES', 'HOURLY', 'DAILY', name='updatefrequency'), nullable=False),
+    sa.Column('frequency', sa.Enum('HOURLY', 'DAILY', name='updatefrequency'), nullable=False),
     sa.Column('prompt_id', sa.Integer(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),

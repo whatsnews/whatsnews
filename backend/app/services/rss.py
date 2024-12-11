@@ -1,168 +1,111 @@
-# app/services/rss.py
 import feedparser
 from typing import List, Dict, Any
 import aiohttp
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
+import logging
 from app.config.settings import get_settings
+import dateutil.parser
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 class RSSService:
     def __init__(self):
-        # Example RSS feeds - you can extend this list
         self.feeds = [
-            # Global News
-            "http://rss.cnn.com/rss/cnn_topstories.rss",
-            "http://feeds.bbci.co.uk/news/rss.xml",
-            "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
-            "https://www.npr.org/rss/rss.php?id=1004",  # NPR World News
-            "https://www.reuters.com/rssFeed/worldNews",  # Reuters World News
-            "https://www.aljazeera.com/xml/rss/all.xml",  # Al Jazeera English
-            "https://www.euronews.com/rss?level=theme&name=news",  # Euronews Global
-
-            # India News
-            "https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms",  # Times of India - Top Stories
-            "https://www.hindustantimes.com/rss/topnews/rssfeed.xml",  # Hindustan Times - Top News
-            "https://www.thehindu.com/news/national/feeder/default.rss",  # The Hindu - National News
-            "https://indianexpress.com/section/india/feed/",  # The Indian Express - India News
-            "https://www.ndtv.com/rss",  # NDTV News
-
-            # Asia News
-            "https://www.scmp.com/rss/318208/feed",  # South China Morning Post - Asia News
-            "https://asia.nikkei.com/rss/feed",  # Nikkei Asia
-            "https://www.channelnewsasia.com/rssfeeds/8395986",  # Channel News Asia
-            "https://www.koreatimes.co.kr/www/rss/nation.xml",  # The Korea Times
-            "https://www.japantimes.co.jp/news_category/national/feed/",  # The Japan Times - National News
-            "https://vietnamnews.vn/rss/",  # Vietnam News
-            "https://www.bangkokpost.com/rss/data",  # Bangkok Post - General News
-
-            # Additional Global News
-            "https://www.nytimes.com/services/xml/rss/nyt/World.xml",  # New York Times - World News
-            "https://www.washingtonpost.com/rss/world",  # Washington Post - World News
-
+            # Top News Sources
+            "https://feeds.bbci.co.uk/news/rss.xml",  # BBC News
+            "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",  # NYT World
+            "http://feeds.bbci.co.uk/news/world/rss.xml",  # BBC World
+            "https://www.indiatoday.in/rss/1206578",  # India Today Top Stories
+            "https://www.thehindu.com/news/feeder/default.rss",  # The Hindu
+            "https://timesofindia.indiatimes.com/rssfeedstopstories.cms", # TOI Top Stories
+            
+            # Technology News
+            "https://feeds.feedburner.com/TechCrunch",  # TechCrunch
+            "https://www.wired.com/feed/rss",  # Wired
+            "https://www.theverge.com/rss/index.xml",  # The Verge
+            
+            # Business News
+            "https://feeds.bloomberg.com/markets/news.rss",  # Bloomberg
+            "https://www.forbes.com/innovation/feed/",  # Forbes Innovation
+            
+            # Science News
+            "https://www.sciencedaily.com/rss/all.xml",  # Science Daily
+            "https://www.livescience.com/feeds/all",  # Live Science
         ]
-
+        
     async def fetch_feed(self, session: aiohttp.ClientSession, url: str) -> Dict[str, Any]:
         try:
-            async with session.get(url) as response:
+            timeout = aiohttp.ClientTimeout(total=30)  # 30 seconds timeout
+            async with session.get(url, timeout=timeout) as response:
                 if response.status == 200:
                     content = await response.text()
                     feed = feedparser.parse(content)
+                    
+                    entries = []
+                    for entry in feed.entries:
+                        try:
+                            # Parse and standardize the publication date
+                            published = entry.get('published', '')
+                            if published:
+                                pub_date = dateutil.parser.parse(published)
+                                if pub_date.tzinfo is None:
+                                    pub_date = pub_date.replace(tzinfo=timezone.utc)
+                                published = pub_date.isoformat()
+                            
+                            entries.append({
+                                'title': entry.get('title', '').strip(),
+                                'description': entry.get('description', '').strip(),
+                                'link': entry.get('link', ''),
+                                'published': published,
+                                'source': url,
+                                'author': entry.get('author', 'Unknown'),
+                                'categories': entry.get('tags', [])
+                            })
+                        except Exception as e:
+                            logger.warning(f"Error processing entry from {url}: {str(e)}")
+                            continue
+                    
                     return {
                         'url': url,
-                        'entries': [
-                            {
-                                'title': entry.get('title', ''),
-                                'description': entry.get('description', ''),
-                                'link': entry.get('link', ''),
-                                'published': entry.get('published', ''),
-                                'source': url
-                            }
-                            for entry in feed.entries
-                        ]
+                        'title': getattr(feed.feed, 'title', ''),
+                        'description': getattr(feed.feed, 'description', ''),
+                        'entries': entries
                     }
+                
+                logger.warning(f"Failed to fetch {url}: HTTP {response.status}")
                 return {'url': url, 'entries': []}
+                
+        except asyncio.TimeoutError:
+            logger.warning(f"Timeout fetching {url}")
+            return {'url': url, 'entries': []}
         except Exception as e:
-            print(f"Error fetching {url}: {str(e)}")
+            logger.error(f"Error fetching {url}: {str(e)}")
             return {'url': url, 'entries': []}
 
     async def fetch_feeds(self) -> List[Dict[str, Any]]:
-        async with aiohttp.ClientSession() as session:
+        """
+        Fetch all RSS feeds concurrently with improved error handling and logging.
+        """
+        connector = aiohttp.TCPConnector(limit=10)  # Limit concurrent connections
+        timeout = aiohttp.ClientTimeout(total=60)  # Overall timeout for all feeds
+        
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
             tasks = [self.fetch_feed(session, url) for url in self.feeds]
-            results = await asyncio.gather(*tasks)
-            return results
-
-# app/services/news.py
-from sqlalchemy.orm import Session
-from typing import List, Dict, Any
-from app.models.news import News, UpdateFrequency
-from app.models.prompt import Prompt
-from app.services.llm import LLMService
-from datetime import datetime, timedelta
-
-class NewsService:
-    def __init__(self, db: Session):
-        self.db = db
-        self.llm_service = LLMService()
-
-
-
-    def _filter_feeds_by_time(
-        self,
-        feeds: List[Dict[str, Any]],
-        frequency: UpdateFrequency
-    ) -> List[Dict[str, Any]]:
-        now = datetime.utcnow()
-        
-        if frequency == UpdateFrequency.THIRTY_MINUTES:  # Changed
-            cutoff = now - timedelta(minutes=30)  # Changed
-        elif frequency == UpdateFrequency.HOURLY:
-            cutoff = now - timedelta(hours=1)
-        else:  # DAILY
-            cutoff = now - timedelta(days=1)
-        
-        filtered_feeds = []
-        for feed in feeds:
-            recent_entries = []
-            for entry in feed['entries']:
-                try:
-                    pub_date = datetime.strptime(entry['published'], '%a, %d %b %Y %H:%M:%S %z')
-                    if pub_date > cutoff:
-                        recent_entries.append(entry)
-                except (ValueError, KeyError):
-                    continue
+            try:
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Filter out failed feeds and log errors
+                filtered_results = []
+                for result in results:
+                    if isinstance(result, Exception):
+                        logger.error(f"Feed fetch failed: {str(result)}")
+                    elif isinstance(result, dict) and result.get('entries'):
+                        filtered_results.append(result)
+                
+                return filtered_results
             
-            if recent_entries:
-                filtered_feed = feed.copy()
-                filtered_feed['entries'] = recent_entries
-                filtered_feeds.append(filtered_feed)
-        
-        return filtered_feeds
-
-    async def generate_news(
-        self,
-        prompt_id: int,
-        frequency: UpdateFrequency,
-        feeds: List[Dict[str, Any]]
-    ) -> News:
-        # Get the prompt
-        prompt = self.db.query(Prompt).filter(Prompt.id == prompt_id).first()
-        if not prompt:
-            raise ValueError("Prompt not found")
-        
-        # Filter feeds based on frequency
-        filtered_feeds = self._filter_feeds_by_time(feeds, frequency)
-        
-        if not filtered_feeds:
-            return None
-        
-        # Prepare content for LLM
-        feed_content = "\n\n".join([
-            "\n".join([
-                f"Title: {entry['title']}\nDescription: {entry['description']}"
-                for entry in feed['entries']
-            ])
-            for feed in filtered_feeds
-        ])
-        
-        # Generate summary using LLM
-        summary = await self.llm_service.generate_summary(
-            feed_content=feed_content,
-            prompt_content=prompt.content,
-            frequency=frequency
-        )
-        
-        # Create news entry
-        news = News(
-            title=f"{frequency.value} Update - {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}",
-            content=summary,
-            frequency=frequency,
-            prompt_id=prompt_id
-        )
-        
-        self.db.add(news)
-        self.db.commit()
-        self.db.refresh(news)
-        
-        return news
+            except Exception as e:
+                logger.error(f"Error fetching feeds: {str(e)}")
+                return []

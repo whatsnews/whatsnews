@@ -1,8 +1,8 @@
-# app/services/llm.py
 import aiohttp
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from app.config.settings import get_settings
 from app.models.news import UpdateFrequency
+from app.models.prompt import TemplateType
 import logging
 from datetime import datetime
 from asyncio import sleep
@@ -22,6 +22,34 @@ class LLMService:
         self.tokens_used = 0
         self.last_token_reset = datetime.now()
         self.encoder = tiktoken.encoding_for_model(self.model)
+
+        # Default templates for different types
+        self.default_templates = {
+            TemplateType.SUMMARY: """Provide a concise summary of the key events and developments. Focus on:
+- Main events and their significance
+- Key players involved
+- Important outcomes or implications""",
+            
+            TemplateType.ANALYSIS: """Provide an in-depth analysis of the news, including:
+- Detailed examination of causes and effects
+- Context and background information
+- Expert opinions and different perspectives
+- Potential future implications""",
+            
+            TemplateType.BULLET_POINTS: """Present the news in a structured bullet-point format:
+• Main Headlines (3-5 key points)
+• Key Details (supporting information)
+• Important Statistics or Data
+• Notable Quotes
+• Context and Background""",
+            
+            TemplateType.NARRATIVE: """Present the news in an engaging narrative style:
+- Create a compelling storyline
+- Include relevant background context
+- Weave different elements together
+- Maintain journalistic accuracy
+- Use descriptive language appropriately"""
+        }
 
     def count_tokens(self, text: str) -> int:
         return len(self.encoder.encode(text))
@@ -53,22 +81,28 @@ class LLMService:
         self.last_request_time = datetime.now()
         self.tokens_used += estimated_tokens
 
-    def create_system_prompt(self, frequency: UpdateFrequency) -> str:
+    def create_system_prompt(self, frequency: UpdateFrequency, template_type: TemplateType, custom_template: Optional[str] = None) -> str:
         time_window = {
-            UpdateFrequency.THIRTY_MINUTES: "the last 30 minutes",
             UpdateFrequency.HOURLY: "the last hour",
             UpdateFrequency.DAILY: "the last 24 hours"
         }[frequency]
         
-        return f"""You are a professional news curator and writer. Analyze and summarize news from {time_window} according to the user's prompt.
-Follow these guidelines:
+        # Use custom template if provided, otherwise use default template
+        template = custom_template if custom_template else self.default_templates[template_type]
+        
+        return f"""You are a professional news curator and writer. Analyze and summarize news from {time_window} according to the following template and user's prompt.
+
+Template Requirements:
+{template}
+
+General Guidelines:
 1. Focus on the most important and relevant information
 2. Maintain objectivity and journalistic standards
-3. Report in an entertaining and engaging tone or voice
+3. Use professional language appropriate for news writing
 4. Organize information logically and clearly
 5. Include relevant context when necessary
-6. Use professional language and tone
-7. Follow the user's prompt requirements exactly
+6. Follow the template structure precisely
+7. Ensure all claims are supported by the provided content
 8. Select one or two people, places or events in the consolidated news and provide relevant did you know facts about the same"""
 
     async def generate_summary(
@@ -76,9 +110,15 @@ Follow these guidelines:
         feed_content: str,
         prompt_content: str,
         frequency: UpdateFrequency,
+        template_type: TemplateType,
+        custom_template: Optional[str] = None,
         max_retries: int = 3
     ) -> str:
-        system_prompt = self.create_system_prompt(frequency)  # Changed from _create_system_prompt
+        system_prompt = self.create_system_prompt(
+            frequency=frequency,
+            template_type=template_type,
+            custom_template=custom_template
+        )
         
         # Estimate total tokens
         total_tokens = (
