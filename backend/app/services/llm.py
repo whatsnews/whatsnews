@@ -1,4 +1,6 @@
+# app/services/llm.py
 import aiohttp
+import re
 from typing import Dict, Any, Optional
 from app.config.settings import get_settings
 from app.models.news import UpdateFrequency
@@ -10,6 +12,10 @@ import tiktoken
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+class TemplateSyntaxError(Exception):
+    """Exception raised for errors in template syntax."""
+    pass
 
 class LLMService:
     def __init__(self):
@@ -51,6 +57,66 @@ class LLMService:
 - Use descriptive language appropriately"""
         }
 
+    def validate_template_format(self, template: str) -> bool:
+        """
+        Validates if a template string has valid syntax.
+        
+        Args:
+            template: The template string to validate
+            
+        Returns:
+            bool: True if template is valid, False otherwise
+        """
+        try:
+            if not template or not template.strip():
+                return False
+
+            # Check for balanced curly braces
+            open_count = template.count('{')
+            close_count = template.count('}')
+            if open_count != close_count:
+                return False
+
+            # Check for nested placeholders
+            if re.search(r'{[^}]*{', template):
+                return False
+
+            # Validate placeholder names
+            placeholders = re.findall(r'{([^}]*)}', template)
+            for placeholder in placeholders:
+                if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', placeholder):
+                    return False
+
+            # Check for duplicate placeholders
+            if len(placeholders) != len(set(placeholders)):
+                return False
+
+            return True
+        except Exception as e:
+            logger.error(f"Template validation error: {str(e)}")
+            return False
+
+    def format_template(self, template: str, data: Dict[str, Any]) -> str:
+        """
+        Formats a template with given data.
+        
+        Args:
+            template: The template string
+            data: Dictionary with values for placeholders
+            
+        Returns:
+            str: Formatted string
+        """
+        try:
+            if not self.validate_template_format(template):
+                raise TemplateSyntaxError("Invalid template format")
+            
+            return template.format(**data)
+        except KeyError as e:
+            raise KeyError(f"Missing required field: {str(e)}")
+        except Exception as e:
+            raise TemplateSyntaxError(f"Template formatting error: {str(e)}")
+
     def count_tokens(self, text: str) -> int:
         return len(self.encoder.encode(text))
 
@@ -82,12 +148,17 @@ class LLMService:
         self.tokens_used += estimated_tokens
 
     def create_system_prompt(self, frequency: UpdateFrequency, template_type: TemplateType, custom_template: Optional[str] = None) -> str:
+        # Validate custom template if provided
+        if custom_template and not self.validate_template_format(custom_template):
+            logger.warning("Invalid custom template format provided, falling back to default template")
+            custom_template = None
+
         time_window = {
             UpdateFrequency.HOURLY: "the last hour",
             UpdateFrequency.DAILY: "the last 24 hours"
         }[frequency]
         
-        # Use custom template if provided, otherwise use default template
+        # Use custom template if provided and valid, otherwise use default template
         template = custom_template if custom_template else self.default_templates[template_type]
         
         return f"""You are a professional news curator and writer. Analyze and summarize news from {time_window} according to the following template and user's prompt.
@@ -114,6 +185,11 @@ General Guidelines:
         custom_template: Optional[str] = None,
         max_retries: int = 3
     ) -> str:
+        # Validate custom template if provided
+        if custom_template and not self.validate_template_format(custom_template):
+            logger.warning("Invalid custom template format provided, falling back to default template")
+            custom_template = None
+
         system_prompt = self.create_system_prompt(
             frequency=frequency,
             template_type=template_type,
@@ -182,3 +258,5 @@ General Guidelines:
                     raise
                 retries += 1
                 await sleep(2 ** retries)  # Exponential backoff
+
+llm_service = LLMService()

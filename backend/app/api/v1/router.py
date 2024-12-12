@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.auth import get_current_active_user
 from app.config.settings import get_settings
-from typing import Any
+from typing import Any, Dict
 
 settings = get_settings()
 
@@ -12,16 +12,25 @@ api_router = APIRouter()
 # Import endpoint modules after router creation
 from app.api.v1.endpoints import auth, users, prompts, news
 
+# Standard error responses
+common_responses: Dict[int, Dict[str, str]] = {
+    400: {"description": "Bad Request - Invalid input or request"},
+    401: {"description": "Unauthorized - Authentication required"},
+    403: {"description": "Forbidden - Insufficient permissions"},
+    404: {"description": "Not Found - Requested resource doesn't exist"},
+    422: {"description": "Validation Error - Request validation failed"},
+    500: {"description": "Internal Server Error - Server-side error occurred"}
+}
+
 # Include auth router (no authentication required)
 api_router.include_router(
     auth.router,
     prefix="/auth",
     tags=["authentication"],
     responses={
-        401: {"description": "Unauthorized"},
-        403: {"description": "Forbidden"},
-        404: {"description": "Not Found"},
-        422: {"description": "Validation Error"}
+        **common_responses,
+        200: {"description": "Successful authentication"},
+        401: {"description": "Invalid credentials"}
     }
 )
 
@@ -31,11 +40,9 @@ api_router.include_router(
     prefix="/users",
     tags=["users"],
     responses={
-        400: {"description": "Bad Request"},
-        401: {"description": "Unauthorized"},
-        403: {"description": "Forbidden"},
-        404: {"description": "Not Found"},
-        422: {"description": "Validation Error"}
+        **common_responses,
+        200: {"description": "Successful user operation"},
+        409: {"description": "Conflict - User already exists"}
     }
 )
 
@@ -46,10 +53,10 @@ api_router.include_router(
     tags=["prompts"],
     dependencies=[Depends(get_current_active_user)],
     responses={
-        401: {"description": "Unauthorized"},
-        403: {"description": "Forbidden"},
-        404: {"description": "Not Found"},
-        422: {"description": "Validation Error"}
+        **common_responses,
+        200: {"description": "Successful prompt operation"},
+        204: {"description": "Prompt deleted successfully"},
+        409: {"description": "Conflict - Resource state conflict"}
     }
 )
 
@@ -60,20 +67,50 @@ api_router.include_router(
     tags=["news"],
     dependencies=[Depends(get_current_active_user)],
     responses={
-        401: {"description": "Unauthorized"},
-        403: {"description": "Forbidden"},
-        404: {"description": "Not Found"},
-        422: {"description": "Validation Error"}
+        **common_responses,
+        200: {"description": "Successful news operation"},
+        204: {"description": "News item deleted successfully"},
+        408: {"description": "Request Timeout - News generation timeout"}
     }
 )
 
-@api_router.get("/health", tags=["health"])
+@api_router.get(
+    "/health",
+    tags=["health"],
+    summary="Health Check",
+    description="Returns the current status of the API service",
+    responses={
+        200: {
+            "description": "Service health information",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "healthy",
+                        "version": "0.1.0",
+                        "api_v1_str": "/api/v1"
+                    }
+                }
+            }
+        },
+        503: {
+            "description": "Service Unavailable - Health check failed"
+        }
+    }
+)
 async def health_check() -> Any:
     """
-    Health check endpoint
+    Health check endpoint that provides service status and version information
     """
-    return {
-        "status": "healthy",
-        "version": settings.VERSION,
-        "api_v1_str": settings.API_V1_STR
-    }
+    try:
+        return {
+            "status": "healthy",
+            "version": settings.VERSION,
+            "api_v1_str": settings.API_V1_STR,
+            "environment": settings.ENVIRONMENT,
+            "debug_mode": settings.DEBUG
+        }
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service health check failed"
+        )
