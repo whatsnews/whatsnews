@@ -1,9 +1,14 @@
 // src/services/promptsService.ts
-import { api } from './api';
-import { API_ENDPOINTS, resolveEndpoint } from '@/config/api';
 
-export interface PromptStats {
-  total_news: number;
+import { api } from './api';
+import { API_ENDPOINTS } from '@/config/api';
+
+export type TemplateType = 'summary' | 'analysis' | 'bullet_points' | 'narrative';
+
+export interface NewsStats {
+  total: number;
+  hourly: number;
+  daily: number;
   last_update?: string;
 }
 
@@ -11,38 +16,40 @@ export interface Prompt {
   id: number;
   name: string;
   content: string;
+  template_type: TemplateType;
+  custom_template?: string;
   user_id: number;
   created_at: string;
   updated_at: string;
-  stats?: PromptStats;
+}
+
+export interface PromptWithStats extends Prompt {
+  news_count: NewsStats;
 }
 
 export interface PromptCreate {
   name: string;
   content: string;
-  template_type?: string;
+  template_type: TemplateType;
   custom_template?: string;
 }
 
 export interface PromptUpdate {
   name?: string;
   content?: string;
-  template_type?: string;
+  template_type?: TemplateType;
   custom_template?: string;
 }
 
-export type TemplateType = 'DEFAULT' | 'CUSTOM' | string;
-
-export interface GetPromptsParams {
+export interface PromptListParams {
   skip?: number;
   limit?: number;
-  user_id?: number;
   search?: string;
 }
 
-export interface ValidateTemplateRequest {
-  template_type: TemplateType;
-  custom_template?: string;
+export interface TemplateValidationResponse {
+  valid: boolean;
+  errors?: Record<string, string[]>;
 }
 
 class PromptsService {
@@ -51,46 +58,50 @@ class PromptsService {
       return await api.post<Prompt>(API_ENDPOINTS.prompts.create, data);
     } catch (error) {
       console.error('Error creating prompt:', error);
-      throw this.handleError(error, 'Failed to create prompt');
+      throw error;
     }
   }
 
-  async getPrompts(params?: GetPromptsParams): Promise<Prompt[]> {
+  async getPrompts(params?: PromptListParams): Promise<Prompt[]> {
     try {
-      return await api.get<Prompt[]>(API_ENDPOINTS.prompts.list, params);
+      return await api.get<Prompt[]>(API_ENDPOINTS.prompts.list, {
+        skip: params?.skip?.toString(),
+        limit: params?.limit?.toString(),
+        search: params?.search,
+      });
     } catch (error) {
       console.error('Error fetching prompts:', error);
-      throw this.handleError(error, 'Failed to fetch prompts');
+      throw error;
     }
   }
 
-  async getPromptById(id: number): Promise<Prompt> {
+  async getPromptById(id: number): Promise<PromptWithStats> {
     try {
-      const endpoint = resolveEndpoint(API_ENDPOINTS.prompts.detail, id);
-      return await api.get<Prompt>(endpoint);
+      const endpoint = API_ENDPOINTS.prompts.detail(id);
+      return await api.get<PromptWithStats>(endpoint);
     } catch (error) {
       console.error(`Error fetching prompt ${id}:`, error);
-      throw this.handleError(error, 'Failed to fetch prompt');
+      throw error;
     }
   }
 
   async updatePrompt(id: number, data: PromptUpdate): Promise<Prompt> {
     try {
-      const endpoint = resolveEndpoint(API_ENDPOINTS.prompts.detail, id);
+      const endpoint = API_ENDPOINTS.prompts.update(id);
       return await api.put<Prompt>(endpoint, data);
     } catch (error) {
       console.error(`Error updating prompt ${id}:`, error);
-      throw this.handleError(error, 'Failed to update prompt');
+      throw error;
     }
   }
 
   async deletePrompt(id: number): Promise<void> {
     try {
-      const endpoint = resolveEndpoint(API_ENDPOINTS.prompts.detail, id);
+      const endpoint = API_ENDPOINTS.prompts.delete(id);
       await api.delete(endpoint);
     } catch (error) {
       console.error(`Error deleting prompt ${id}:`, error);
-      throw this.handleError(error, 'Failed to delete prompt');
+      throw error;
     }
   }
 
@@ -99,45 +110,55 @@ class PromptsService {
       return await api.get<TemplateType[]>(API_ENDPOINTS.prompts.templates);
     } catch (error) {
       console.error('Error fetching templates:', error);
-      throw this.handleError(error, 'Failed to fetch templates');
+      throw error;
     }
   }
 
-  async getPromptNews(promptId: number): Promise<Prompt> {
+  async validateTemplate(
+    template_type: TemplateType,
+    custom_template?: string
+  ): Promise<TemplateValidationResponse> {
     try {
-      const endpoint = resolveEndpoint(API_ENDPOINTS.prompts.news, promptId);
-      return await api.get<Prompt>(endpoint);
+      return await api.post<TemplateValidationResponse>(
+        API_ENDPOINTS.prompts.validateTemplate,
+        {
+          template_type,
+          custom_template,
+        }
+      );
+    } catch (error) {
+      console.error('Error validating template:', error);
+      throw error;
+    }
+  }
+
+  async getPromptNews(promptId: number): Promise<any> {
+    try {
+      const endpoint = API_ENDPOINTS.prompts.news(promptId);
+      return await api.get(endpoint);
     } catch (error) {
       console.error(`Error fetching news for prompt ${promptId}:`, error);
-      throw this.handleError(error, 'Failed to fetch prompt news');
+      throw error;
     }
   }
 
-  async validatePromptTemplate(data: ValidateTemplateRequest): Promise<boolean> {
-    try {
-      await api.post(API_ENDPOINTS.prompts.validateTemplate, data);
-      return true;
-    } catch (error) {
-      console.error('Template validation error:', error);
-      return false;
-    }
+  // Helper methods
+  isValidTemplateType(type: string): type is TemplateType {
+    return ['summary', 'analysis', 'bullet_points', 'narrative'].includes(type);
   }
 
-  async duplicatePrompt(id: number): Promise<Prompt> {
-    try {
-      const endpoint = resolveEndpoint(API_ENDPOINTS.prompts.duplicate, id);
-      return await api.post<Prompt>(endpoint);
-    } catch (error) {
-      console.error(`Error duplicating prompt ${id}:`, error);
-      throw this.handleError(error, 'Failed to duplicate prompt');
-    }
+  getTemplateTypeLabel(type: TemplateType): string {
+    const labels: Record<TemplateType, string> = {
+      summary: 'Summary',
+      analysis: 'Analysis',
+      bullet_points: 'Bullet Points',
+      narrative: 'Narrative'
+    };
+    return labels[type] || type;
   }
 
-  private handleError(error: unknown, defaultMessage: string): Error {
-    if (error instanceof Error) {
-      return new Error(error.message || defaultMessage);
-    }
-    return new Error(defaultMessage);
+  formatDate(dateString: string): string {
+    return new Date(dateString).toLocaleString();
   }
 }
 

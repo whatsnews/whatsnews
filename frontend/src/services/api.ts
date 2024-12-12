@@ -1,109 +1,159 @@
 // src/services/api.ts
-import { API_BASE_URL } from '@/config/api';
+import {
+  API_BASE_URL,
+  ApiError,
+  ApiResponse,
+  ContentTypes,
+  HttpMethod,
+  RequestConfig,
+  buildApiUrl,
+} from '@/config/api';
 
-interface RequestOptions {
-  method?: string;
-  headers?: Record<string, string>;
-  body?: any;
+class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+    public detail?: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
 }
 
-interface QueryParams {
-  [key: string]: string | number | boolean | undefined;
-}
+class ApiService {
+  private async request<T>(
+    endpoint: string,
+    config: RequestConfig = {}
+  ): Promise<T> {
+    const {
+      method = 'GET',
+      headers = {},
+      body,
+      params,
+    } = config;
 
-export class ApiService {
+    try {
+      const url = buildApiUrl(endpoint, params);
+      const token = this.getToken();
+      
+      const requestHeaders: HeadersInit = {
+        'Accept': ContentTypes.JSON,
+        'Content-Type': ContentTypes.JSON,
+        ...headers,
+      };
+
+      if (token) {
+        requestHeaders['Authorization'] = `Bearer ${token}`;
+      }
+
+      const requestConfig: RequestInit = {
+        method,
+        headers: requestHeaders,
+        credentials: 'include',
+      };
+
+      if (body) {
+        requestConfig.body = typeof body === 'string' ? body : JSON.stringify(body);
+      }
+
+      const response = await fetch(url, requestConfig);
+      
+      if (response.status === 204) {
+        return {} as T;
+      }
+
+      if (response.status === 401) {
+        this.clearToken();
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+        throw new ApiError(401, 'Unauthorized access');
+      }
+
+      const contentType = response.headers.get('content-type');
+      let data;
+      
+      try {
+        data = contentType?.includes('application/json') 
+          ? await response.json()
+          : await response.text();
+      } catch {
+        throw new ApiError(
+          response.status,
+          'Invalid response format',
+          'Failed to parse server response'
+        );
+      }
+
+      if (!response.ok) {
+        throw new ApiError(
+          response.status,
+          data.detail || 'Request failed',
+          typeof data === 'object' ? JSON.stringify(data) : data
+        );
+      }
+
+      return data as T;
+
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      // Network or fetch errors
+      if (error instanceof Error && error.name === 'TypeError') {
+        throw new ApiError(
+          503,
+          'Network error',
+          error.message
+        );
+      }
+
+      // Unknown errors
+      throw new ApiError(
+        500,
+        'Internal error',
+        error instanceof Error ? error.message : 'Unknown error occurred'
+      );
+    }
+  }
+
   private getToken(): string | undefined {
+    if (typeof document === 'undefined') return undefined;
     return document.cookie
       .split('; ')
       .find(row => row.startsWith('token='))
       ?.split('=')[1];
   }
 
-  private getHeaders(requiresAuth: boolean = true): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-
-    if (requiresAuth) {
-      const token = this.getToken();
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-    }
-
-    return headers;
+  private clearToken(): void {
+    if (typeof document === 'undefined') return;
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
   }
 
-  private buildUrl(endpoint: string, params?: QueryParams): string {
-    const url = new URL(`${API_BASE_URL}${endpoint}`);
-    
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) {
-          url.searchParams.append(key, String(value));
-        }
-      });
-    }
-    
-    return url.toString();
+  async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
+    return this.request<T>(endpoint, { method: 'GET', params });
   }
 
-  async request<T>(endpoint: string, options: RequestOptions = {}, params?: QueryParams): Promise<T> {
-    const { method = 'GET', body, headers = {} } = options;
-    const requiresAuth = !endpoint.endsWith('/login');
-    
-    const requestOptions: RequestOptions = {
-      method,
-      headers: {
-        ...this.getHeaders(requiresAuth),
-        ...headers,
-      },
-    };
-
-    if (body) {
-      requestOptions.body = JSON.stringify(body);
-    }
-
-    const url = this.buildUrl(endpoint, params);
-    
-    try {
-      const response = await fetch(url, requestOptions);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.detail || 'API request failed');
-      }
-
-      // Handle 204 No Content
-      if (response.status === 204) {
-        return {} as T;
-      }
-
-      return response.json();
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
-    }
+  async post<T>(endpoint: string, data?: any): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: data,
+    });
   }
 
-  get<T>(endpoint: string, params?: QueryParams): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET' }, params);
+  async put<T>(endpoint: string, data?: any): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: data,
+    });
   }
 
-  post<T>(endpoint: string, data?: any): Promise<T> {
-    return this.request<T>(endpoint, { method: 'POST', body: data });
-  }
-
-  put<T>(endpoint: string, data?: any): Promise<T> {
-    return this.request<T>(endpoint, { method: 'PUT', body: data });
-  }
-
-  delete<T>(endpoint: string): Promise<T> {
+  async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
 
-  postForm<T>(endpoint: string, data: Record<string, string>): Promise<T> {
+  async postForm<T>(endpoint: string, data: Record<string, string>): Promise<T> {
     const formData = new URLSearchParams();
     Object.entries(data).forEach(([key, value]) => {
       formData.append(key, value);
@@ -112,7 +162,7 @@ export class ApiService {
     return this.request<T>(endpoint, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': ContentTypes.FORM,
       },
       body: formData.toString(),
     });

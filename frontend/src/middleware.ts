@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 
 // Define route patterns
 const publicRoutes = ['/login', '/signup'];
-const protectedRoutes = ['/prompts', '/settings'];
+const protectedRoutes = ['/prompts', '/news', '/settings'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -24,13 +24,14 @@ export function middleware(request: NextRequest) {
     if (!token) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
-    return NextResponse.redirect(new URL('/prompts/1', request.url));
+    // Redirect to news page instead of prompts
+    return NextResponse.redirect(new URL('/news', request.url));
   }
 
   // Handle public routes (login/signup)
   if (publicRoutes.includes(pathname)) {
     if (token) {
-      return NextResponse.redirect(new URL('/prompts/1', request.url));
+      return NextResponse.redirect(new URL('/news', request.url));
     }
     return NextResponse.next();
   }
@@ -51,6 +52,7 @@ export const config = {
     '/',
     '/login',
     '/signup',
+    '/news',
     '/prompts/:path*',
     '/settings/:path*',
   ],

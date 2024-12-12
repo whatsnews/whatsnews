@@ -1,100 +1,79 @@
 // src/app/(dashboard)/prompts/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PromptCard } from "@/components/prompts/PromptCard";
 import { CreatePromptDialog } from "@/components/prompts/CreatePromptDialog";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { promptsService } from "@/services/promptsService";
-import { auth } from "@/lib/auth";
-
-interface PromptStats {
-  total_news: number;
-  last_update?: string;
-}
-
-interface Prompt {
-  id: number;
-  name: string;
-  content: string;
-  user_id: number;
-  created_at: string;
-  updated_at: string;
-  stats?: PromptStats;
-}
+import { AlertCircle, Loader2, Search } from "lucide-react";
+import { 
+  promptsService, 
+  Prompt, 
+  PromptListParams 
+} from "@/services/promptsService";
 
 export default function PromptsPage() {
   const router = useRouter();
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout>();
 
-  const fetchPrompts = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
+  const fetchPrompts = async (params?: PromptListParams) => {
     try {
-      if (!auth.isAuthenticated()) {
-        router.push('/login');
-        return;
-      }
-
-      const fetchedPrompts = await promptsService.getPrompts({ 
-        skip: 0, 
-        limit: 100 
-      });
-
-      // Sort prompts by created date, newest first
-      const sortedPrompts = [...fetchedPrompts].sort((a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-
-      setPrompts(sortedPrompts);
+      setIsLoading(true);
+      setError(null);
+      const fetchedPrompts = await promptsService.getPrompts(params);
+      setPrompts(fetchedPrompts);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch prompts';
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : 'Failed to fetch prompts');
       console.error('Error fetching prompts:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [router]);
+  };
+
+  // Handle search with debounce
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    const timeout = setTimeout(() => {
+      fetchPrompts({ search: value });
+    }, 500);
+
+    setSearchTimeout(timeout);
+  };
 
   useEffect(() => {
     fetchPrompts();
-  }, [fetchPrompts]);
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, []);
 
-  const handleEditPrompt = useCallback((prompt: Prompt) => {
-    router.push(`/prompts/${prompt.id}`);
-  }, [router]);
-
-  const handleDeletePrompt = useCallback(async (promptId: number) => {
-    const confirmDelete = window.confirm(
-      'Are you sure you want to delete this prompt? This action cannot be undone.'
-    );
-
-    if (!confirmDelete) return;
-
-    setIsDeleting(promptId);
-    setError(null);
-
+  const handleDeletePrompt = async (promptId: number) => {
     try {
       await promptsService.deletePrompt(promptId);
       setPrompts(currentPrompts => 
         currentPrompts.filter(p => p.id !== promptId)
       );
     } catch (err) {
-      const errorMessage = err instanceof Error 
-        ? err.message 
-        : 'Failed to delete prompt';
-      setError(`Failed to delete prompt: ${errorMessage}`);
-      console.error('Error deleting prompt:', err);
-    } finally {
-      setIsDeleting(null);
+      setError(err instanceof Error ? err.message : 'Failed to delete prompt');
     }
-  }, []);
+  };
+
+  const handleEditPrompt = (prompt: Prompt) => {
+    router.push(`/prompts/${prompt.id}`);
+  };
 
   const renderContent = () => {
     if (isLoading) {
@@ -113,7 +92,7 @@ export default function PromptsPage() {
 
     if (error) {
       return (
-        <Alert variant="destructive" className="mb-6">
+        <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -122,11 +101,16 @@ export default function PromptsPage() {
 
     if (prompts.length === 0) {
       return (
-        <div className="col-span-full bg-muted/50 rounded-lg p-12 text-center">
-          <p className="text-muted-foreground mb-4">
-            No prompts found. Create your first prompt to get started.
+        <div className="text-center py-12">
+          <h3 className="text-lg font-medium text-muted-foreground mb-4">
+            No prompts found
+          </h3>
+          <p className="text-sm text-muted-foreground mb-6">
+            {searchTerm 
+              ? "No prompts match your search criteria" 
+              : "Create your first prompt to get started"}
           </p>
-          <CreatePromptDialog onPromptCreated={fetchPrompts} />
+          {!searchTerm && <CreatePromptDialog onPromptCreated={fetchPrompts} />}
         </div>
       );
     }
@@ -134,19 +118,12 @@ export default function PromptsPage() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {prompts.map((prompt) => (
-          <div key={prompt.id} className="relative">
-            {isDeleting === prompt.id && (
-              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              </div>
-            )}
-            <PromptCard
-              prompt={prompt}
-              onEdit={() => handleEditPrompt(prompt)}
-              onDelete={() => handleDeletePrompt(prompt.id)}
-              disabled={isDeleting === prompt.id}
-            />
-          </div>
+          <PromptCard
+            key={prompt.id}
+            prompt={prompt}
+            onEdit={handleEditPrompt}
+            onDelete={handleDeletePrompt}
+          />
         ))}
       </div>
     );
@@ -154,12 +131,39 @@ export default function PromptsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-medium">My Prompts</h1>
-        <CreatePromptDialog 
-          onPromptCreated={fetchPrompts}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-2xl font-semibold">My Prompts</h1>
+        <div className="flex items-center gap-4 w-full sm:w-auto">
+          <div className="relative flex-1 sm:flex-initial">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search prompts..."
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <CreatePromptDialog 
+            onPromptCreated={fetchPrompts}
+            disabled={isLoading}
+          />
+        </div>
+      </div>
+
+      {/* Refresh Button */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fetchPrompts()}
           disabled={isLoading}
-        />
+        >
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            "Refresh"
+          )}
+        </Button>
       </div>
 
       {renderContent()}
