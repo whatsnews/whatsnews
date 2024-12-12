@@ -18,10 +18,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Plus } from "lucide-react";
+import { promptsService } from "@/services/promptsService";
+import type { TemplateType } from "@/types/api";
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   content: z.string().min(10, 'Content must be at least 10 characters'),
+  template_type: z.enum(['summary', 'analysis', 'bullet_points', 'narrative'] as const),
+  custom_template: z.string().optional(),
 });
 
 type PromptFormValues = z.infer<typeof formSchema>;
@@ -33,47 +37,29 @@ interface CreatePromptDialogProps {
 export function CreatePromptDialog({ onPromptCreated }: CreatePromptDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const form = useForm<PromptFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       content: "",
+      template_type: 'summary',
     },
   });
 
   const onSubmit = async (values: PromptFormValues) => {
     setIsLoading(true);
+    setError(null);
+
     try {
-      const token = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('token='))
-        ?.split('=')[1];
-
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch('http://localhost:8000/api/v1/prompts/', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'accept': 'application/json',
-        },
-        body: JSON.stringify(values),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create prompt');
-      }
-
+      await promptsService.createPrompt(values);
       setOpen(false);
       form.reset();
       onPromptCreated();
-    } catch (error) {
-      console.error('Error creating prompt:', error);
-      // TODO: Show error toast
+    } catch (err) {
+      console.error('Error creating prompt:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create prompt');
     } finally {
       setIsLoading(false);
     }
@@ -123,6 +109,28 @@ export function CreatePromptDialog({ onPromptCreated }: CreatePromptDialogProps)
                       disabled={isLoading}
                       rows={5}
                     />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="template_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Template Type</FormLabel>
+                  <FormControl>
+                    <select 
+                      {...field}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
+                      disabled={isLoading}
+                    >
+                      <option value="summary">Summary</option>
+                      <option value="analysis">Analysis</option>
+                      <option value="bullet_points">Bullet Points</option>
+                      <option value="narrative">Narrative</option>
+                    </select>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

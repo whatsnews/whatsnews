@@ -1,7 +1,7 @@
 // src/components/news/NewsCard.tsx
 import { Card } from "@/components/ui/card";
 import ReactMarkdown from 'react-markdown';
-import { News } from "@/types/news";
+import { News } from "@/types/_news";
 
 interface NewsCardProps {
   news: News;

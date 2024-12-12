@@ -10,15 +10,8 @@ import {
   Newspaper,
   LogOut
 } from 'lucide-react';
-
-interface Prompt {
-  id: number;
-  name: string;
-  content: string;
-  user_id: number;
-  created_at: string;
-  updated_at: string;
-}
+import { promptsService } from "@/services/promptsService";
+import type { Prompt } from "@/types/api";
 
 interface NavItem {
   title: string;
@@ -50,28 +43,8 @@ export function Sidebar() {
   useEffect(() => {
     const fetchPrompts = async () => {
       try {
-        const token = document.cookie
-          .split('; ')
-          .find(row => row.startsWith('token='))
-          ?.split('=')[1];
-
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
-
-        const response = await fetch('http://localhost:8000/api/v1/prompts/?skip=0&limit=10', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch prompts');
-        }
-
-        const data = await response.json();
-        setPrompts(data);
+        const promptsData = await promptsService.getPrompts();
+        setPrompts(promptsData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch prompts');
         console.error('Error fetching prompts:', err);

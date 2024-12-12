@@ -20,6 +20,8 @@ import * as z from "zod";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { authService } from "@/services/authService";
+import { usersService } from "@/services/usersService";
 
 const formSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -51,42 +53,24 @@ export function SignupForm() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/users/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: values.username,
-          email: values.email,
-          password: values.password,
-        }),
+      // Create user account
+      await usersService.createUser({
+        username: values.username,
+        email: values.email,
+        password: values.password,
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create account');
-      }
-
-      // Automatically log in after successful signup
-      const loginResponse = await fetch('http://localhost:8000/api/v1/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          username: values.username,
-          password: values.password,
-        }),
+      // Log in with new credentials
+      const authData = await authService.login({
+        username: values.username,
+        password: values.password,
       });
 
-      if (!loginResponse.ok) {
-        throw new Error('Account created but failed to log in');
-      }
-
-      const data = await loginResponse.json();
-      document.cookie = `token=${data.access_token}; path=/; max-age=86400; samesite=lax`;
+      // Set token in cookie
+      document.cookie = `token=${authData.access_token}; path=/; max-age=86400; samesite=lax`;
       
-      router.push('/prompts/technology');
+      // Redirect to dashboard
+      router.push('/prompts/1');
       router.refresh();
     } catch (error) {
       console.error('Signup error:', error);
