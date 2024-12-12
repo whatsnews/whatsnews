@@ -3,7 +3,7 @@
 
 > ⚠️ **Note**: This project is currently under active development and is not yet ready for production use.
 
-WhatsNews is an intelligent news aggregation and summarization platform that uses LLMs to provide personalized news digests based on custom prompts. It consolidates news from various publicly available sources and presents them in a way that matters to you. WhatsNews is simple to use and fast to customize. You can host it privately and decide whether to make the news & insights accessible exclusively to yourself or to the public.
+WhatsNews is an intelligent news aggregation and summarization platform that uses LLMs to provide personalized news digests based on custom prompts. It consolidates news from various publicly available sources and presents them in a way that matters to you. WhatsNews is simple to use and fast to customize. You can host it privately and decide whether to make the news & insights accessible exclusively to yourself or to the public. If you have a publicly hosted WhatsNews live service, contact us, and we will update it in the table at the bottom of this page.
 
 ![logo whatsnews](https://github.com/user-attachments/assets/edaf87c4-ac35-400b-a680-159279a133a6)
 
@@ -67,3 +67,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+List of Publicly available WhatsNews services
+1. WhatsNews official portal - Coming soon
