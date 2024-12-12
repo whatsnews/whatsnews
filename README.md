@@ -1,8 +1,9 @@
 # WhatsNews 🗞️
+### "Take back your news!"
 
 > ⚠️ **Note**: This project is currently under active development and is not yet ready for production use.
 
-WhatsNews is an intelligent news aggregation and summarization platform that uses LLMs to provide personalized news digests based on custom prompts. It consolidates news from various sources and presents them in a way that matters to you.
+WhatsNews is an intelligent news aggregation and summarization platform that uses LLMs to provide personalized news digests based on custom prompts. It consolidates news from various publicly available sources and presents them in a way that matters to you.
 
 ![logo whatsnews](https://github.com/user-attachments/assets/edaf87c4-ac35-400b-a680-159279a133a6)
 
