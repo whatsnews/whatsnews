@@ -53,12 +53,12 @@ export function NewsCard({ news }: NewsCardProps) {
         </div>
       </div>
 
-      <h3 className="text-xl text-foreground/90 font-medium mb-4">
+      {/* <h3 className="text-xl text-foreground/90 font-medium mb-4">
         {news.title}
-      </h3>
+      </h3> */}
 
       {hasMarkdown ? (
-        <div className="text-foreground/70 leading-relaxed prose prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground/70 prose-strong:text-foreground/90 prose-ul:text-foreground/70">
+        <div className="text-foreground/70 leading-relaxed prose prose-base max-w-none prose-headings:text-foreground prose-p:text-foreground/70 prose-strong:text-foreground/90 prose-ul:text-foreground/70">
           <ReactMarkdown>
             {news.content}
           </ReactMarkdown>

@@ -33,6 +33,9 @@ class RSSService:
             # Science News
             "https://www.sciencedaily.com/rss/all.xml",  # Science Daily
             "https://www.livescience.com/feeds/all",  # Live Science
+
+            # Tech News
+            "https://rss.slashdot.org/Slashdot/slashdot",
         ]
         
     async def fetch_feed(self, session: aiohttp.ClientSession, url: str) -> Dict[str, Any]:

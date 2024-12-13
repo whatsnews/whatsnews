@@ -172,9 +172,9 @@ General Guidelines:
 3. Use professional language appropriate for news writing
 4. Organize information logically and clearly
 5. Include relevant context when necessary
-6. Follow the template structure precisely
+6. Follow the template structure precisely and strictly. If no news matches the content required category, do not generate the summary. mention no updates on the mentioned category.
 7. Ensure all claims are supported by the provided content
-8. Select one or two people, places or events in the consolidated news and provide relevant did you know facts about the same"""
+8. Include a section about what the user can expect in the coming hours and days based on the recent developments globally. Be creative and imaginative on this"""
 
     async def generate_summary(
         self,
