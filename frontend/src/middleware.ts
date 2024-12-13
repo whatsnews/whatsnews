@@ -55,5 +55,6 @@ export const config = {
     '/news',
     '/prompts/:path*',
     '/settings/:path*',
+    '/:username/:prompt-slug', // Fixed: Removed the * modifier
   ],
 };

@@ -1,6 +1,7 @@
 // src/components/prompts/PromptCard.tsx
 import { FC, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,25 +11,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, Trash, Edit, Copy, Clock, FileText, Globe, Lock, Users } from 'lucide-react';
 import { promptsService, Prompt, PromptWithStats } from '@/services/promptsService';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
-import { VisibilityType } from '@/types/api';
+import { VisibilityBadge } from '@/components/ui/visibility-badge';
 
 interface PromptCardProps {
   prompt: Prompt | PromptWithStats;
   onEdit?: (prompt: Prompt) => void;
   onDelete?: (id: number) => void;
   disabled?: boolean;
-  username: string;
+  className?: string;
+  showActions?: boolean;
 }
 
-const visibilityConfig = {
-  private: { icon: Lock, className: 'bg-slate-500' },
-  internal: { icon: Users, className: 'bg-blue-500' },
-  public: { icon: Globe, className: 'bg-green-500' }
+const VisibilityIcon = {
+  private: Lock,
+  internal: Users,
+  public: Globe,
 } as const;
 
 export const PromptCard: FC<PromptCardProps> = ({
@@ -36,7 +37,8 @@ export const PromptCard: FC<PromptCardProps> = ({
   onEdit,
   onDelete,
   disabled = false,
-  username,
+  className = '',
+  showActions = true,
 }) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -66,8 +68,9 @@ export const PromptCard: FC<PromptCardProps> = ({
     }
   };
 
-  const handleViewDetails = () => {
-    router.push(`/${username}/${prompt.slug}`);
+  const copyToClipboard = () => {
+    const url = `${window.location.origin}/${prompt.user?.username}/${prompt.slug}`;
+    navigator.clipboard.writeText(url);
   };
 
   const formatDate = (date: string) => {
@@ -85,71 +88,70 @@ export const PromptCard: FC<PromptCardProps> = ({
     return 0;
   };
 
-  const VisibilityIcon = visibilityConfig[prompt.visibility].icon;
-
   return (
-    <Card className="relative overflow-hidden">
+    <Card className={`relative overflow-hidden ${className}`}>
       {isLoading && (
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       )}
       
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex flex-col space-y-1.5">
-          <div className="flex items-center space-x-2">
-            <h3 className="font-semibold text-base leading-none tracking-tight">
-              {prompt.name}
-            </h3>
-            <Badge 
-              variant="secondary"
-              className={`flex items-center space-x-1 ${visibilityConfig[prompt.visibility].className}`}
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+        <div className="space-y-2">
+          <Link 
+            href={`/${prompt.user?.username}/${prompt.slug}`}
+            className="hover:underline font-medium text-lg"
+          >
+            {prompt.name}
+          </Link>
+          
+          <div className="flex items-center space-x-2 text-sm">
+            <Link 
+              href={`/${prompt.user?.username}`}
+              className="text-muted-foreground hover:underline"
             >
-              <VisibilityIcon className="h-3 w-3" />
-              <span className="capitalize">{prompt.visibility}</span>
-            </Badge>
+              @{prompt.user?.username}
+            </Link>
+            <span className="text-muted-foreground">•</span>
+            <span className="text-muted-foreground">
+              {formatDate(prompt.created_at)}
+            </span>
+            <VisibilityBadge visibility={prompt.visibility} />
           </div>
-          <p className="text-sm text-muted-foreground">
-            Created {formatDate(prompt.created_at)}
-          </p>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild disabled={disabled}>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleEdit}>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleViewDetails}>
-              <FileText className="mr-2 h-4 w-4" />
-              View Details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => {
-              navigator.clipboard.writeText(`${window.location.origin}/${username}/${prompt.slug}`);
-            }}>
-              <Copy className="mr-2 h-4 w-4" />
-              Copy Link
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={handleDelete}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {showActions && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild disabled={disabled}>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleEdit}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={copyToClipboard}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy Link
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleDelete}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </CardHeader>
 
       <CardContent>
-        <p className="text-sm text-muted-foreground line-clamp-2">
+        <p className="text-sm text-muted-foreground line-clamp-3">
           {prompt.content}
         </p>
         
@@ -175,16 +177,12 @@ export const PromptCard: FC<PromptCardProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-foreground"
-            onClick={handleViewDetails}
-          >
-            View Details →
-          </Button>
-        </div>
+        <Link
+          href={`/${prompt.user?.username}/${prompt.slug}`}
+          className="text-sm text-muted-foreground hover:text-primary transition-colors"
+        >
+          View Details →
+        </Link>
       </CardFooter>
     </Card>
   );

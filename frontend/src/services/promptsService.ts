@@ -1,5 +1,4 @@
 // src/services/promptsService.ts
-
 import { api } from './api';
 import { API_ENDPOINTS } from '@/config/api';
 import type { 
@@ -7,9 +6,11 @@ import type {
   PromptCreate, 
   PromptUpdate, 
   PromptWithStats,
+  PromptListResponse,
   TemplateType,
   VisibilityType 
 } from '@/types/api';
+import { auth } from '@/lib/auth';
 
 export interface NewsStats {
   total: number;
@@ -32,6 +33,7 @@ export interface TemplateValidationResponse {
 }
 
 class PromptsService {
+  // CRUD Operations
   async createPrompt(data: PromptCreate): Promise<Prompt> {
     try {
       return await api.post<Prompt>(API_ENDPOINTS.prompts.create, data);
@@ -56,6 +58,7 @@ class PromptsService {
     }
   }
 
+  // Public Access Methods
   async getPublicPrompts(params?: PromptListParams): Promise<Prompt[]> {
     try {
       return await api.get<Prompt[]>(API_ENDPOINTS.prompts.public, {
@@ -122,6 +125,7 @@ class PromptsService {
     }
   }
 
+  // Template Management
   async getTemplates(): Promise<TemplateType[]> {
     try {
       return await api.get<TemplateType[]>(API_ENDPOINTS.prompts.templates);
@@ -149,6 +153,7 @@ class PromptsService {
     }
   }
 
+  // News Management
   async getPromptNews(promptId: number): Promise<any> {
     try {
       const endpoint = API_ENDPOINTS.prompts.news(promptId);
@@ -159,7 +164,7 @@ class PromptsService {
     }
   }
 
-  // Helper methods
+  // Helper Methods
   isValidTemplateType(type: string): type is TemplateType {
     return ['summary', 'analysis', 'bullet_points', 'narrative'].includes(type);
   }
@@ -187,8 +192,27 @@ class PromptsService {
     return labels[type] || type;
   }
 
+  getVisibilityDescription(type: VisibilityType): string {
+    const descriptions: Record<VisibilityType, string> = {
+      private: 'Only you can see this prompt',
+      internal: 'All signed-in users can see this prompt',
+      public: 'Anyone can see this prompt'
+    };
+    return descriptions[type] || '';
+  }
+
   formatDate(dateString: string): string {
     return new Date(dateString).toLocaleString();
+  }
+
+  // Visibility Helpers
+  canAccessPrompt(
+    prompt: Prompt,
+    isAuthenticated: boolean = auth.isAuthenticated()
+  ): boolean {
+    const isOwner = isAuthenticated && prompt.user_id === auth.getCurrentUserId();
+    const visibility = auth.checkVisibility(prompt.visibility, isAuthenticated, isOwner);
+    return visibility.canView;
   }
 }
 

@@ -32,8 +32,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Plus, AlertCircle, Globe, Lock, Users } from 'lucide-react';
-import { promptsService, TemplateType } from '@/services/promptsService';
+import { Globe, Lock, Users, Plus, AlertCircle, Loader2 } from 'lucide-react';
+import { promptsService } from '@/services/promptsService';
 import { VisibilityType } from '@/types/api';
 
 // Form validation schema
@@ -54,22 +54,25 @@ interface CreatePromptDialogProps {
 
 const visibilityOptions = [
   {
-    value: 'private',
+    value: 'private' as VisibilityType,
     label: 'Private',
     description: 'Only you can see this prompt',
-    icon: Lock
+    icon: Lock,
+    className: 'bg-slate-100 hover:bg-slate-200'
   },
   {
-    value: 'internal',
+    value: 'internal' as VisibilityType,
     label: 'Internal',
-    description: 'All registered users can see this prompt',
-    icon: Users
+    description: 'All signed-in users can see this prompt',
+    icon: Users,
+    className: 'bg-blue-100 hover:bg-blue-200'
   },
   {
-    value: 'public',
+    value: 'public' as VisibilityType,
     label: 'Public',
     description: 'Anyone with the link can see this prompt',
-    icon: Globe
+    icon: Globe,
+    className: 'bg-green-100 hover:bg-green-200'
   }
 ] as const;
 
@@ -87,7 +90,7 @@ export function CreatePromptDialog({
       name: '',
       content: '',
       template_type: 'summary',
-      visibility: 'private' as VisibilityType,
+      visibility: 'private',
       custom_template: '',
     },
   });
@@ -220,19 +223,23 @@ export function CreatePromptDialog({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select visibility" />
+                        <SelectValue placeholder="Select visibility level" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {visibilityOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>
-                          <div className="flex items-center">
-                            <option.icon className="mr-2 h-4 w-4" />
-                            <div className="flex flex-col">
-                              <span>{option.label}</span>
-                              <span className="text-xs text-muted-foreground">
+                        <SelectItem 
+                          key={option.value} 
+                          value={option.value}
+                          className={option.className}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <option.icon className="h-4 w-4" />
+                            <div>
+                              <div className="font-medium">{option.label}</div>
+                              <div className="text-xs text-muted-foreground">
                                 {option.description}
-                              </span>
+                              </div>
                             </div>
                           </div>
                         </SelectItem>

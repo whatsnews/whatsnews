@@ -70,8 +70,11 @@ export interface Prompt {
   visibility: VisibilityType;
   custom_template?: string;
   user_id: number;
-  created_at?: string;
-  updated_at?: string;
+  user?: {
+    username: string;
+  };
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PromptCreate {
@@ -101,6 +104,12 @@ export interface PromptWithStats extends Prompt {
   news_count: PromptStats;
 }
 
+export interface PromptListResponse {
+  prompts: Prompt[];
+  total: number;
+  has_more: boolean;
+}
+
 // Auth types
 export interface Token {
   access_token: string;
@@ -111,3 +120,16 @@ export interface LoginRequest {
   username: string;
   password: string;
 }
+
+// Visibility helper types
+export interface VisibilityConfig {
+  canView: boolean;
+  requiresAuth: boolean;
+  message?: string;
+}
+
+export type VisibilityCheck = (
+  visibility: VisibilityType,
+  isAuthenticated: boolean,
+  isOwner: boolean
+) => VisibilityConfig;
