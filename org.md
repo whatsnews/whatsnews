@@ -1,8 +1,8 @@
 ## Todolist
 
-***Doing***
+#### Doing
 - [ ] Public & Private access to news updates
 
-***Next***
+#### Next
 - [ ] Prompt icons by prompt type
 - [ ]
