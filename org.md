@@ -1,4 +1,4 @@
-*Todolist*
+**Todolist**
 
 ***Doing***
 - [ ] Public & Private access to news updates
