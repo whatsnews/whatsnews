@@ -1,15 +1,12 @@
 // src/services/api.ts
 import {
   API_BASE_URL,
-  ApiError,
-  ApiResponse,
   ContentTypes,
-  HttpMethod,
-  RequestConfig,
+  type RequestConfig,
   buildApiUrl,
 } from '@/config/api';
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
@@ -20,69 +17,47 @@ class ApiError extends Error {
   }
 }
 
+interface ApiRequestConfig extends RequestConfig {
+  skipAuth?: boolean;
+}
+
 class ApiService {
   private async request<T>(
     endpoint: string,
-    config: RequestConfig = {}
+    config: ApiRequestConfig = {}
   ): Promise<T> {
-    const {
-      method = 'GET',
-      headers = {},
-      body,
-      params,
-    } = config;
-
     try {
-      const url = buildApiUrl(endpoint, params);
-      const token = this.getToken();
+      const url = buildApiUrl(endpoint, config.params);
       
       const requestHeaders: HeadersInit = {
         'Accept': ContentTypes.JSON,
         'Content-Type': ContentTypes.JSON,
-        ...headers,
+        ...config.headers,
       };
 
-      if (token) {
-        requestHeaders['Authorization'] = `Bearer ${token}`;
+      // Only add auth header if not explicitly skipped
+      if (!config.skipAuth) {
+        const token = this.getToken();
+        if (token) {
+          requestHeaders['Authorization'] = `Bearer ${token}`;
+        }
       }
 
-      const requestConfig: RequestInit = {
-        method,
+      const response = await fetch(url, {
+        method: config.method || 'GET',
         headers: requestHeaders,
+        body: config.body ? JSON.stringify(config.body) : undefined,
         credentials: 'include',
-      };
+      });
 
-      if (body) {
-        requestConfig.body = typeof body === 'string' ? body : JSON.stringify(body);
-      }
+      const data = await response.json();
 
-      const response = await fetch(url, requestConfig);
-      
-      if (response.status === 204) {
-        return {} as T;
-      }
-
-      if (response.status === 401) {
+      // For public endpoints, don't redirect on 401
+      if (response.status === 401 && !config.skipAuth) {
         this.clearToken();
         if (typeof window !== 'undefined') {
           window.location.href = '/login';
         }
-        throw new ApiError(401, 'Unauthorized access');
-      }
-
-      const contentType = response.headers.get('content-type');
-      let data;
-      
-      try {
-        data = contentType?.includes('application/json') 
-          ? await response.json()
-          : await response.text();
-      } catch {
-        throw new ApiError(
-          response.status,
-          'Invalid response format',
-          'Failed to parse server response'
-        );
       }
 
       if (!response.ok) {
@@ -131,40 +106,49 @@ class ApiService {
     document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
   }
 
-  async get<T>(endpoint: string, params?: Record<string, string>): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET', params });
-  }
-
-  async post<T>(endpoint: string, data?: any): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      body: data,
+  async get<T>(
+    endpoint: string, 
+    params?: Record<string, string>,
+    config: ApiRequestConfig = {}
+  ): Promise<T> {
+    return this.request<T>(endpoint, { 
+      method: 'GET',
+      params,
+      ...config
     });
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<T> {
+  async post<T>(
+    endpoint: string,
+    data?: any,
+    config: ApiRequestConfig = {}
+  ): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: data,
+      ...config
+    });
+  }
+
+  async put<T>(
+    endpoint: string,
+    data?: any,
+    config: ApiRequestConfig = {}
+  ): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: data,
+      ...config
     });
   }
 
-  async delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE' });
-  }
-
-  async postForm<T>(endpoint: string, data: Record<string, string>): Promise<T> {
-    const formData = new URLSearchParams();
-    Object.entries(data).forEach(([key, value]) => {
-      formData.append(key, value);
-    });
-
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': ContentTypes.FORM,
-      },
-      body: formData.toString(),
+  async delete<T>(
+    endpoint: string,
+    config: ApiRequestConfig = {}
+  ): Promise<T> {
+    return this.request<T>(endpoint, { 
+      method: 'DELETE',
+      ...config
     });
   }
 }

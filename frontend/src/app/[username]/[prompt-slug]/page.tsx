@@ -1,16 +1,10 @@
 // src/app/[username]/[prompt-slug]/page.tsx
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { buttonVariants } from '@/components/ui/button';
-import { VisibilityBadge } from '@/components/ui/visibility-badge';
-import { LoginPromptOverlay } from '@/components/prompts/LoginPromptOverlay';
-import { FileText, AlertCircle } from 'lucide-react';
-import Link from 'next/link';
+import { PromptView } from '@/components/prompts/PromptView';
 import { promptsService } from '@/services/promptsService';
 import { serverAuth } from '@/lib/server-auth';
-import { auth } from '@/lib/auth';
+import type { PromptWithStats } from '@/types/api';
 
 interface PageProps {
   params: {
@@ -19,114 +13,90 @@ interface PageProps {
   };
 }
 
-async function getPromptData(username: string, slug: string, token?: string) {
+async function getPromptData(
+  username: string, 
+  slug: string,
+  token?: string
+): Promise<PromptWithStats | null> {
   try {
-    const headers: HeadersInit = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
+    // First try without auth for public prompts
     const prompt = await promptsService.getPromptByPath(username, slug);
     return prompt;
-  } catch (error) {
+  } catch (error: any) {
+    // If unauthorized and we have a token, retry with auth
+    if (error?.status === 401 && token) {
+      try {
+        const prompt = await promptsService.getPromptByPath(username, slug, true);
+        return prompt;
+      } catch (retryError) {
+        console.error('Error fetching prompt with auth:', retryError);
+        return null;
+      }
+    }
+    console.error('Error fetching prompt:', error);
     return null;
   }
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const prompt = await getPromptData(params.username, params['prompt-slug']);
+  const { username, 'prompt-slug': slug } = params;
+  const token = await serverAuth.getServerToken();
+  const prompt = await getPromptData(username, slug, token);
 
   if (!prompt) {
     return {
       title: 'Prompt Not Found',
+      description: 'The requested prompt could not be found.'
     };
   }
 
   return {
-    title: prompt.name,
+    title: `${prompt.name} by @${username}`,
     description: prompt.content.substring(0, 160),
+    openGraph: {
+      title: prompt.name,
+      description: prompt.content.substring(0, 160),
+      type: 'article',
+      authors: [username],
+    },
   };
 }
 
 export default async function PromptPage({ params }: PageProps) {
-  const token = serverAuth.getServerToken();
-  const prompt = await getPromptData(params.username, params['prompt-slug'], token);
+  const { username, 'prompt-slug': slug } = params;
+  const token = await serverAuth.getServerToken();
+  const prompt = await getPromptData(username, slug, token);
+  const currentUser = token ? await serverAuth.getCurrentUser() : null;
 
   if (!prompt) {
     notFound();
   }
 
-  const isAuthenticated = !!token;
-  const canAccess = auth.canAccessPrompt(prompt.visibility, isAuthenticated);
+  const isOwner = currentUser?.id === prompt.user_id;
+  const canAccess = promptsService.canAccessPrompt(prompt, !!currentUser, isOwner);
+
+  if (!canAccess) {
+    return (
+      <div className="container max-w-4xl py-8">
+        <div className="bg-destructive/10 text-destructive px-4 py-2 rounded">
+          You don't have permission to view this prompt.
+          {!currentUser && (
+            <p className="text-sm mt-2">
+              Please <a href="/login" className="underline">log in</a> to access this content.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container max-w-4xl py-8">
-      <Card className="relative">
-        {!canAccess && <LoginPromptOverlay visibility={prompt.visibility} />}
-        
-        <CardHeader className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <CardTitle className="text-2xl">{prompt.name}</CardTitle>
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                <Link 
-                  href={`/${params.username}`}
-                  className="hover:underline"
-                >
-                  @{params.username}
-                </Link>
-                <span>•</span>
-                <VisibilityBadge visibility={prompt.visibility} />
-              </div>
-            </div>
-            
-            {canAccess && isAuthenticated && (
-              <Link
-                href={`/prompts/${prompt.id}`}
-                className={buttonVariants({ variant: "outline" })}
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                Manage Prompt
-              </Link>
-            )}
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-6">
-          {canAccess ? (
-            <>
-              <div className="prose dark:prose-invert max-w-none">
-                <p>{prompt.content}</p>
-              </div>
-
-              {prompt.news_count && prompt.news_count.total > 0 ? (
-                <div className="space-y-4">
-                  <h2 className="text-xl font-semibold">Generated News</h2>
-                  <div className="grid gap-4">
-                    {/* News items would be rendered here */}
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        This prompt has generated {prompt.news_count.total} news items.
-                        {!isAuthenticated && (
-                          <> <Link href="/login" className="underline">Log in</Link> to view them.</>
-                        )}
-                      </AlertDescription>
-                    </Alert>
-                  </div>
-                </div>
-              ) : (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    No news items have been generated for this prompt yet.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </>
-          ) : null}
-        </CardContent>
-      </Card>
+      <PromptView 
+        prompt={prompt}
+        isOwner={isOwner}
+        isAuthenticated={!!currentUser}
+      />
     </div>
   );
 }

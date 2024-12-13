@@ -65,6 +65,7 @@ class PromptService:
             ) from e
 
     # app/services/prompt.py
+
     def get_prompt_by_username_and_slug(
         self,
         username: str,
@@ -73,10 +74,9 @@ class PromptService:
     ) -> Dict[str, Any]:
         """Get prompt by username and slug with visibility checks."""
         try:
-            # Get prompt with user info in a single query
             prompt = (
                 self.db.query(Prompt)
-                .join(User)  # Join with User table
+                .join(User)
                 .filter(User.username == username, Prompt.slug == slug)
                 .first()
             )
@@ -87,64 +87,50 @@ class PromptService:
                     detail="Prompt not found"
                 )
 
-            # For public prompts, allow access without authentication
+            # Public prompts are accessible to everyone
             if prompt.visibility == VisibilityType.PUBLIC:
-                news_count = {
-                    "total": len(prompt.news_items),
-                    "hourly": sum(1 for n in prompt.news_items if n.frequency == "hourly"),
-                    "daily": sum(1 for n in prompt.news_items if n.frequency == "daily"),
-                    "last_update": max((n.updated_at for n in prompt.news_items), default=None) if prompt.news_items else None
-                }
-                return {
+                result = {
                     "prompt": prompt,
-                    "news_count": news_count
+                    "news_count": {
+                        "total": len(prompt.news_items),
+                        "hourly": sum(1 for n in prompt.news_items if n.frequency == "hourly"),
+                        "daily": sum(1 for n in prompt.news_items if n.frequency == "daily"),
+                        "last_update": max((n.updated_at for n in prompt.news_items), default=None) if prompt.news_items else None
+                    }
                 }
+                return result
 
-            # For non-public prompts, require authentication
             if not current_user:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Authentication required for this prompt"
                 )
 
-            # For internal prompts, any authenticated user can access
-            if prompt.visibility == VisibilityType.INTERNAL:
-                news_count = {
-                    "total": len(prompt.news_items),
-                    "hourly": sum(1 for n in prompt.news_items if n.frequency == "hourly"),
-                    "daily": sum(1 for n in prompt.news_items if n.frequency == "daily"),
-                    "last_update": max((n.updated_at for n in prompt.news_items), default=None) if prompt.news_items else None
-                }
-                return {
-                    "prompt": prompt,
-                    "news_count": news_count
-                }
-
-            # For private prompts, only owner can access
-            if prompt.user_id != current_user.id:
+            # At this point user is authenticated
+            if prompt.visibility == VisibilityType.PRIVATE and prompt.user_id != current_user.id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Not authorized to access this prompt"
                 )
 
-            news_count = {
-                "total": len(prompt.news_items),
-                "hourly": sum(1 for n in prompt.news_items if n.frequency == "hourly"),
-                "daily": sum(1 for n in prompt.news_items if n.frequency == "daily"),
-                "last_update": max((n.updated_at for n in prompt.news_items), default=None) if prompt.news_items else None
-            }
             return {
                 "prompt": prompt,
-                "news_count": news_count
+                "news_count": {
+                    "total": len(prompt.news_items),
+                    "hourly": sum(1 for n in prompt.news_items if n.frequency == "hourly"),
+                    "daily": sum(1 for n in prompt.news_items if n.frequency == "daily"),
+                    "last_update": max((n.updated_at for n in prompt.news_items), default=None) if prompt.news_items else None
+                }
             }
 
         except HTTPException:
             raise
         except Exception as e:
+            self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to fetch prompt"
-            ) from e
+            )
 
     def get_prompts(
         self,
@@ -204,7 +190,7 @@ class PromptService:
         limit: int = 100,
         search: Optional[str] = None
     ) -> List[Prompt]:
-        """Get list of public prompts."""
+        """Get list of public prompts without auth requirement."""
         try:
             query = self.db.query(Prompt).filter(Prompt.visibility == VisibilityType.PUBLIC)
 
@@ -218,9 +204,17 @@ class PromptService:
                     )
                 )
 
-            prompts = query.order_by(Prompt.created_at.desc()).offset(skip).limit(limit).all()
+            prompts = (
+                query
+                .order_by(Prompt.created_at.desc())
+                .offset(skip)
+                .limit(limit)
+                .all()
+            )
+            
             return prompts
-        except SQLAlchemyError as e:
+        except Exception as e:
+            self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to fetch public prompts"

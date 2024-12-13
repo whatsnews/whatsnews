@@ -174,3 +174,16 @@ async def rate_limit_auth(request: Request):
     
     # Add new request
     rate_limit_data[client_ip].append(now)
+
+async def get_optional_current_user_public(
+    request: Request,
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+    """
+    Like get_optional_current_user but never raises auth errors.
+    Used for public endpoints.
+    """
+    try:
+        return await get_optional_current_user(request, db)
+    except:
+        return None

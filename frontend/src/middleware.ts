@@ -6,13 +6,23 @@ import type { NextRequest } from 'next/server';
 const publicRoutes = ['/login', '/signup'];
 const protectedRoutes = ['/prompts', '/news', '/settings'];
 
+// Helper to check if it's a username/prompt route
+const isUsernamePromptRoute = (pathname: string) => {
+  const parts = pathname.split('/').filter(Boolean);
+  return parts.length === 2;
+};
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('token')?.value;
 
-  // First, handle protected routes (most specific first)
+  // Allow username/prompt routes without auth
+  if (isUsernamePromptRoute(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Handle protected routes (most specific first)
   if (protectedRoutes.some(route => pathname.startsWith(route))) {
-    // If no token, always redirect to login
     if (!token) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
@@ -21,11 +31,7 @@ export function middleware(request: NextRequest) {
 
   // Handle root route
   if (pathname === '/') {
-    if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
-    // Redirect to news page instead of prompts
-    return NextResponse.redirect(new URL('/news', request.url));
+    return NextResponse.next();  // Allow access to landing page
   }
 
   // Handle public routes (login/signup)
@@ -36,7 +42,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // For any other routes, redirect to login if no token
+  // For dashboard routes, require authentication
   if (!token) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
@@ -46,15 +52,12 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all paths that need middleware processing
-     */
     '/',
     '/login',
     '/signup',
     '/news',
     '/prompts/:path*',
     '/settings/:path*',
-    '/:username/:prompt-slug', // Fixed: Removed the * modifier
+    '/:username/:prompt-slug',
   ],
 };

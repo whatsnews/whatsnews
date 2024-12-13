@@ -34,7 +34,8 @@ class LLMService:
             TemplateType.SUMMARY: """Provide a concise summary of the key events and developments. Focus on:
 - Main events and their significance
 - Key players involved
-- Important outcomes or implications""",
+- Important outcomes or implications
+- Include a headline for the summary news. the headline should be catching and well written like a newspaper""",
             
             TemplateType.ANALYSIS: """Provide an in-depth analysis of the news, including:
 - Detailed examination of causes and effects
@@ -174,7 +175,8 @@ General Guidelines:
 5. Include relevant context when necessary
 6. Follow the template structure precisely and strictly. If no news matches the content required category, do not generate the summary. mention no updates on the mentioned category.
 7. Ensure all claims are supported by the provided content
-8. Include a section about what the user can expect in the coming hours and days based on the recent developments globally. Be creative and imaginative on this"""
+8. Include a headline for the summary news. the headline should be catching and well written like a newspaper.
+9. Include a section about what the user can expect in the coming hours and days based on the recent developments globally. Be creative and imaginative on this"""
 
     async def generate_summary(
         self,
