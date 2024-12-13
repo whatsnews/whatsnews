@@ -1,3 +1,4 @@
+# alembic/versions/638fab0c4db8_fresh_start.py
 """fresh_start
 
 Revision ID: 638fab0c4db8
@@ -7,7 +8,6 @@ Create Date: 2024-12-11 21:05:42.806341
 """
 from alembic import op
 import sqlalchemy as sa
-
 
 # revision identifiers, used by Alembic
 revision = '638fab0c4db8'

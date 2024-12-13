@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException, status
 
-from app.models.prompt import Prompt, TemplateType
+from app.models.prompt import Prompt, TemplateType, VisibilityType
 from app.models.user import User
 from app.schemas.prompt import PromptCreate, PromptUpdate
 from app.services.llm import llm_service
@@ -29,6 +29,7 @@ class PromptService:
                 content=prompt_data.content,
                 template_type=prompt_data.template_type,
                 custom_template=prompt_data.custom_template,
+                visibility=prompt_data.visibility,
                 user_id=user.id
             )
             self.db.add(prompt)
@@ -47,11 +48,34 @@ class PromptService:
         user: User,
         skip: int = 0,
         limit: int = 100,
-        search: Optional[str] = None
+        search: Optional[str] = None,
+        include_internal: bool = True,
+        include_public: bool = True
     ) -> List[Prompt]:
         """Get list of prompts with optional filtering."""
         try:
-            query = self.db.query(Prompt).filter(Prompt.user_id == user.id)
+            # Start with base query for user's own prompts
+            query = self.db.query(Prompt)
+            
+            # Build visibility conditions
+            visibility_conditions = [
+                Prompt.user_id == user.id,  # User's own prompts
+            ]
+            
+            if include_internal:
+                visibility_conditions.append(
+                    (Prompt.visibility == VisibilityType.INTERNAL) & 
+                    (Prompt.user_id != user.id)
+                )
+            
+            if include_public:
+                visibility_conditions.append(
+                    (Prompt.visibility == VisibilityType.PUBLIC) & 
+                    (Prompt.user_id != user.id)
+                )
+            
+            # Apply visibility conditions
+            query = query.filter(sqlalchemy.or_(*visibility_conditions))
 
             if search:
                 search_term = f"%{search}%"
@@ -68,18 +92,83 @@ class PromptService:
                 detail="Failed to fetch prompts"
             ) from e
 
-    def get_prompt_by_id(self, prompt_id: int, user: User) -> Prompt:
+    def get_public_prompts(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        search: Optional[str] = None
+    ) -> List[Prompt]:
+        """Get list of public prompts."""
+        try:
+            query = self.db.query(Prompt).filter(Prompt.visibility == VisibilityType.PUBLIC)
+
+            if search:
+                search_term = f"%{search}%"
+                query = query.filter(
+                    (Prompt.name.ilike(search_term)) |
+                    (Prompt.content.ilike(search_term))
+                )
+
+            prompts = query.order_by(Prompt.created_at.desc()).offset(skip).limit(limit).all()
+            return prompts
+        except SQLAlchemyError as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to fetch public prompts"
+            ) from e
+
+    def get_internal_prompts(
+        self,
+        user: User,
+        skip: int = 0,
+        limit: int = 100,
+        search: Optional[str] = None
+    ) -> List[Prompt]:
+        """Get list of internal prompts."""
+        try:
+            query = self.db.query(Prompt).filter(
+                Prompt.visibility == VisibilityType.INTERNAL,
+                Prompt.user_id != user.id
+            )
+
+            if search:
+                search_term = f"%{search}%"
+                query = query.filter(
+                    (Prompt.name.ilike(search_term)) |
+                    (Prompt.content.ilike(search_term))
+                )
+
+            prompts = query.order_by(Prompt.created_at.desc()).offset(skip).limit(limit).all()
+            return prompts
+        except SQLAlchemyError as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to fetch internal prompts"
+            ) from e
+
+    def get_prompt_by_id(self, prompt_id: int, user: Optional[User] = None) -> Prompt:
         """Get a specific prompt by ID."""
-        prompt = self.db.query(Prompt).filter(
-            Prompt.id == prompt_id,
-            Prompt.user_id == user.id
-        ).first()
+        prompt = self.db.query(Prompt).filter(Prompt.id == prompt_id).first()
 
         if not prompt:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Prompt not found"
             )
+
+        # Check visibility permissions
+        if prompt.visibility == VisibilityType.PRIVATE:
+            if not user or prompt.user_id != user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to access this prompt"
+                )
+        elif prompt.visibility == VisibilityType.INTERNAL:
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Authentication required for internal prompts"
+                )
 
         return prompt
 
@@ -91,6 +180,13 @@ class PromptService:
     ) -> Prompt:
         """Update an existing prompt."""
         prompt = self.get_prompt_by_id(prompt_id, user)
+
+        # Only owner can update prompt
+        if prompt.user_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to update this prompt"
+            )
 
         try:
             # Validate custom template if being updated
@@ -122,6 +218,13 @@ class PromptService:
         """Delete a prompt."""
         prompt = self.get_prompt_by_id(prompt_id, user)
 
+        # Only owner can delete prompt
+        if prompt.user_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to delete this prompt"
+            )
+
         try:
             self.db.delete(prompt)
             self.db.commit()
@@ -150,7 +253,7 @@ class PromptService:
         """Count total prompts for a user."""
         return self.db.query(Prompt).filter(Prompt.user_id == user.id).count()
 
-    def get_prompt_with_news_count(self, prompt_id: int, user: User) -> dict:
+    def get_prompt_with_news_count(self, prompt_id: int, user: Optional[User] = None) -> dict:
         """Get prompt with associated news count."""
         prompt = self.get_prompt_by_id(prompt_id, user)
         news_count = len(prompt.news_items)

@@ -3,13 +3,14 @@ from pydantic import BaseModel, Field, validator
 from typing import Optional, Dict, Any
 from datetime import datetime
 from app.schemas.base import TimestampedSchema
-from app.models.prompt import TemplateType
+from app.models.prompt import TemplateType, VisibilityType
 
 class PromptBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Name of the prompt")
     content: str = Field(..., min_length=1, description="Content of the prompt")
     template_type: TemplateType = Field(..., description="Type of template to use")
     custom_template: Optional[str] = Field(None, description="Custom template for narrative type")
+    visibility: VisibilityType = Field(default=VisibilityType.PRIVATE, description="Visibility level of the prompt")
 
     @validator('custom_template')
     def validate_custom_template(cls, v, values):
@@ -24,7 +25,8 @@ class PromptCreate(PromptBase):
                 "name": "Daily Tech News",
                 "content": "Latest developments in AI and technology",
                 "template_type": "summary",
-                "custom_template": None
+                "custom_template": None,
+                "visibility": "private"
             }
         }
 
@@ -33,6 +35,7 @@ class PromptUpdate(BaseModel):
     content: Optional[str] = Field(None, min_length=1)
     template_type: Optional[TemplateType] = None
     custom_template: Optional[str] = None
+    visibility: Optional[VisibilityType] = None
 
     @validator('custom_template')
     def validate_custom_template(cls, v, values):
@@ -45,7 +48,8 @@ class PromptUpdate(BaseModel):
             "example": {
                 "name": "Updated Tech News",
                 "content": "Updated content focus on AI developments",
-                "template_type": "analysis"
+                "template_type": "analysis",
+                "visibility": "internal"
             }
         }
 
@@ -62,6 +66,7 @@ class Prompt(PromptBase, TimestampedSchema):
                 "content": "Latest developments in AI and technology",
                 "template_type": "summary",
                 "custom_template": None,
+                "visibility": "private",
                 "user_id": 1,
                 "created_at": "2024-03-14T12:00:00Z",
                 "updated_at": "2024-03-14T12:00:00Z"
@@ -85,6 +90,7 @@ class PromptWithStats(Prompt):
                 "content": "Latest developments in AI and technology",
                 "template_type": "summary",
                 "custom_template": None,
+                "visibility": "private",
                 "user_id": 1,
                 "created_at": "2024-03-14T12:00:00Z",
                 "updated_at": "2024-03-14T12:00:00Z",

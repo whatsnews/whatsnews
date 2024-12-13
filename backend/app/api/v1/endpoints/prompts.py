@@ -5,14 +5,14 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.user import User
-from app.models.prompt import TemplateType
+from app.models.prompt import TemplateType, VisibilityType
 from app.schemas.prompt import (
     PromptCreate,
     PromptUpdate,
     Prompt as PromptSchema,
     PromptWithStats
 )
-from app.core.auth import get_current_active_user
+from app.core.auth import get_current_active_user, get_optional_current_user
 from app.services.prompt import PromptService
 
 router = APIRouter()
@@ -28,7 +28,7 @@ async def create_prompt(
     current_user: User = Depends(get_current_active_user)
 ) -> Any:
     """
-    Create new prompt with template support.
+    Create new prompt with template support and visibility setting.
     """
     try:
         prompt = prompt_service.create_prompt(prompt_in, current_user)
@@ -47,13 +47,69 @@ async def list_prompts(
     current_user: User = Depends(get_current_active_user),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
-    search: Optional[str] = Query(None, min_length=1)
+    search: Optional[str] = Query(None, min_length=1),
+    include_internal: bool = Query(True, description="Include internal prompts from other users"),
+    include_public: bool = Query(True, description="Include public prompts from other users")
 ) -> Any:
     """
-    Get list of prompts for current user with optional search.
+    Get list of prompts for current user including internal and public prompts based on preferences.
     """
     try:
         prompts = prompt_service.get_prompts(
+            user=current_user,
+            skip=skip,
+            limit=limit,
+            search=search,
+            include_internal=include_internal,
+            include_public=include_public
+        )
+        return prompts
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.get("/public", response_model=List[PromptSchema])
+async def list_public_prompts(
+    prompt_service: PromptService = Depends(get_prompt_service),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, le=100),
+    search: Optional[str] = Query(None, min_length=1)
+) -> Any:
+    """
+    Get list of public prompts. No authentication required.
+    """
+    try:
+        prompts = prompt_service.get_public_prompts(
+            skip=skip,
+            limit=limit,
+            search=search
+        )
+        return prompts
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.get("/internal", response_model=List[PromptSchema])
+async def list_internal_prompts(
+    prompt_service: PromptService = Depends(get_prompt_service),
+    current_user: User = Depends(get_current_active_user),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, le=100),
+    search: Optional[str] = Query(None, min_length=1)
+) -> Any:
+    """
+    Get list of internal prompts from other users. Requires authentication.
+    """
+    try:
+        prompts = prompt_service.get_internal_prompts(
             user=current_user,
             skip=skip,
             limit=limit,
@@ -72,10 +128,14 @@ async def list_prompts(
 async def get_prompt(
     prompt_id: int,
     prompt_service: PromptService = Depends(get_prompt_service),
-    current_user: User = Depends(get_current_active_user)
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ) -> Any:
     """
-    Get prompt by ID with associated statistics.
+    Get prompt by ID with associated statistics. 
+    Access control based on visibility:
+    - Private: Only owner can access
+    - Internal: Any authenticated user can access
+    - Public: Anyone can access
     """
     try:
         prompt_data = prompt_service.get_prompt_with_news_count(prompt_id, current_user)
@@ -96,7 +156,7 @@ async def update_prompt(
     current_user: User = Depends(get_current_active_user)
 ) -> Any:
     """
-    Update existing prompt.
+    Update existing prompt. Only owner can update their prompts.
     """
     try:
         prompt = prompt_service.update_prompt(prompt_id, prompt_in, current_user)
@@ -116,7 +176,7 @@ async def delete_prompt(
     current_user: User = Depends(get_current_active_user)
 ) -> Response:
     """
-    Delete prompt.
+    Delete prompt. Only owner can delete their prompts.
     """
     try:
         prompt_service.delete_prompt(prompt_id, current_user)

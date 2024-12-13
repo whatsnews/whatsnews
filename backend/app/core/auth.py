@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login"
+    tokenUrl=f"{settings.API_V1_STR}/auth/login",
+    auto_error=False  # Changed to False to support optional authentication
 )
 
 def authenticate_user(
@@ -48,54 +49,76 @@ def authenticate_user(
 
 async def get_current_user(
     db: Session = Depends(get_db),
-    token: str = Depends(oauth2_scheme)
-) -> User:
+    token: Optional[str] = Depends(oauth2_scheme)
+) -> Optional[User]:
     """
     Get current user from JWT token.
-    Raises HTTPException if token is invalid.
+    Returns None if no token or invalid token.
     """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    
+    if not token:
+        return None
+        
     try:
         # Verify and decode token
         payload = verify_token(token)
         if payload is None:
             logger.warning("Token verification failed")
-            raise credentials_exception
+            return None
         
         # Validate token data
         token_data = TokenPayload(**payload)
         if token_data.exp and datetime.fromtimestamp(token_data.exp) < datetime.utcnow():
             logger.warning("Token has expired")
-            raise credentials_exception
+            return None
         
         # Get user
         user = db.query(User).filter(User.id == token_data.sub).first()
         if not user:
             logger.warning(f"User not found for token sub: {token_data.sub}")
-            raise credentials_exception
+            return None
             
         return user
         
     except (jwt.InvalidTokenError, ValidationError) as e:
         logger.error(f"Token validation error: {str(e)}")
-        raise credentials_exception
+        return None
     except Exception as e:
         logger.error(f"Unexpected error in get_current_user: {str(e)}")
-        raise credentials_exception
+        return None
 
 async def get_current_active_user(
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user)
 ) -> User:
     """
     Verify that the current user is active.
+    Raises exception if no user or inactive user.
     """
+    if not current_user:
+        logger.warning("No authenticated user found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
     if not current_user.is_active:
         logger.warning(f"Inactive user attempted access: {current_user.email}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user"
+        )
+    return current_user
+
+async def get_optional_current_user(
+    current_user: Optional[User] = Depends(get_current_user)
+) -> Optional[User]:
+    """
+    Similar to get_current_active_user but doesn't raise an exception if no user is found.
+    Used for endpoints that support both authenticated and unauthenticated access.
+    Only checks if the user is active when a user is present.
+    """
+    if current_user and not current_user.is_active:
+        logger.warning(f"Inactive user attempted optional access: {current_user.email}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Inactive user"
