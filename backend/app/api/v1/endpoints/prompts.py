@@ -50,14 +50,12 @@ async def get_prompt_by_path(
 ) -> Any:
     """
     Get prompt by username and slug.
-    Access control based on visibility:
-    - Private: Only owner can access
-    - Internal: Any authenticated user can access
-    - Public: Anyone can access
+    - Public prompts: Accessible to everyone
+    - Internal prompts: Requires authentication
+    - Private prompts: Only accessible to owner
     """
     try:
-        prompt = prompt_service.get_prompt_by_username_and_slug(username, slug, current_user)
-        return prompt
+        return prompt_service.get_prompt_by_username_and_slug(username, slug, current_user)
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -157,10 +155,9 @@ async def get_prompt(
 ) -> Any:
     """
     Get prompt by ID with associated statistics. 
-    Access control based on visibility:
-    - Private: Only owner can access
-    - Internal: Any authenticated user can access
-    - Public: Anyone can access
+    - Public prompts: Accessible to everyone
+    - Internal prompts: Requires authentication
+    - Private prompts: Only accessible to owner
     """
     try:
         prompt_data = prompt_service.get_prompt_with_news_count(prompt_id, current_user)
@@ -216,8 +213,7 @@ async def delete_prompt(
 
 @router.get("/templates", response_model=List[str])
 async def get_available_templates(
-    prompt_service: PromptService = Depends(get_prompt_service),
-    current_user: User = Depends(get_current_active_user)
+    prompt_service: PromptService = Depends(get_prompt_service)
 ) -> Any:
     """
     Get list of available template types.

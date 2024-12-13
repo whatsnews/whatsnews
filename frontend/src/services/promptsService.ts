@@ -6,7 +6,6 @@ import type {
   PromptCreate, 
   PromptUpdate, 
   PromptWithStats,
-  PromptListResponse,
   TemplateType,
   VisibilityType 
 } from '@/types/api';
@@ -32,136 +31,163 @@ export interface TemplateValidationResponse {
   errors?: Record<string, string[]>;
 }
 
+interface RequestOptions {
+  requireAuth?: boolean;
+}
+
 class PromptsService {
-  // CRUD Operations
-  async createPrompt(data: PromptCreate): Promise<Prompt> {
+  private async request<T>(
+    endpoint: string,
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+    data?: any,
+    params?: Record<string, string>,
+    options: RequestOptions = { requireAuth: true }
+  ): Promise<T> {
     try {
-      return await api.post<Prompt>(API_ENDPOINTS.prompts.create, data);
+      const config: any = {
+        method,
+        params,
+      };
+
+      if (data) {
+        config.body = data;
+      }
+
+      if (!options.requireAuth) {
+        config.skipAuth = true;
+      }
+
+      if (method === 'GET') {
+        return await api.get<T>(endpoint, params, config);
+      } else if (method === 'POST') {
+        return await api.post<T>(endpoint, data, config);
+      } else if (method === 'PUT') {
+        return await api.put<T>(endpoint, data, config);
+      } else {
+        return await api.delete<T>(endpoint, config);
+      }
     } catch (error) {
-      console.error('Error creating prompt:', error);
+      console.error(`API request failed: ${endpoint}`, error);
       throw error;
     }
+  }
+
+  async createPrompt(data: PromptCreate): Promise<Prompt> {
+    return this.request<Prompt>(API_ENDPOINTS.prompts.create, 'POST', data);
   }
 
   async getPrompts(params?: PromptListParams): Promise<Prompt[]> {
-    try {
-      return await api.get<Prompt[]>(API_ENDPOINTS.prompts.list, {
-        skip: params?.skip?.toString(),
-        limit: params?.limit?.toString(),
-        search: params?.search,
-        include_internal: params?.include_internal?.toString(),
-        include_public: params?.include_public?.toString(),
-      });
-    } catch (error) {
-      console.error('Error fetching prompts:', error);
-      throw error;
-    }
+    return this.request<Prompt[]>(API_ENDPOINTS.prompts.list, 'GET', undefined, {
+      skip: params?.skip?.toString(),
+      limit: params?.limit?.toString(),
+      search: params?.search,
+      include_internal: params?.include_internal?.toString(),
+      include_public: params?.include_public?.toString(),
+    });
   }
 
-  // Public Access Methods
   async getPublicPrompts(params?: PromptListParams): Promise<Prompt[]> {
-    try {
-      return await api.get<Prompt[]>(API_ENDPOINTS.prompts.public, {
+    return this.request<Prompt[]>(
+      API_ENDPOINTS.prompts.public,
+      'GET',
+      undefined,
+      {
         skip: params?.skip?.toString(),
         limit: params?.limit?.toString(),
         search: params?.search,
-      });
-    } catch (error) {
-      console.error('Error fetching public prompts:', error);
-      throw error;
-    }
+      },
+      { requireAuth: false }
+    );
   }
 
   async getInternalPrompts(params?: PromptListParams): Promise<Prompt[]> {
-    try {
-      return await api.get<Prompt[]>(API_ENDPOINTS.prompts.internal, {
-        skip: params?.skip?.toString(),
-        limit: params?.limit?.toString(),
-        search: params?.search,
-      });
-    } catch (error) {
-      console.error('Error fetching internal prompts:', error);
-      throw error;
-    }
+    return this.request<Prompt[]>(API_ENDPOINTS.prompts.internal, 'GET', undefined, {
+      skip: params?.skip?.toString(),
+      limit: params?.limit?.toString(),
+      search: params?.search,
+    });
   }
 
   async getPromptById(id: number): Promise<PromptWithStats> {
+    // Initially try without auth for public prompts
     try {
-      const endpoint = API_ENDPOINTS.prompts.detail(id);
-      return await api.get<PromptWithStats>(endpoint);
-    } catch (error) {
-      console.error(`Error fetching prompt ${id}:`, error);
+      return await this.request<PromptWithStats>(
+        API_ENDPOINTS.prompts.detail(id),
+        'GET',
+        undefined,
+        undefined,
+        { requireAuth: false }
+      );
+    } catch (error: any) {
+      if (error?.status === 401 || error?.status === 403) {
+        // If unauthorized, retry with auth if user is logged in
+        if (auth.isAuthenticated()) {
+          return this.request<PromptWithStats>(API_ENDPOINTS.prompts.detail(id));
+        }
+      }
       throw error;
     }
   }
 
   async getPromptByPath(username: string, slug: string): Promise<PromptWithStats> {
+    // First try without authentication for public prompts
     try {
-      const endpoint = API_ENDPOINTS.prompts.byPath(username, slug);
-      return await api.get<PromptWithStats>(endpoint);
-    } catch (error) {
-      console.error(`Error fetching prompt ${username}/${slug}:`, error);
+      return await this.request<PromptWithStats>(
+        API_ENDPOINTS.prompts.byPath(username, slug),
+        'GET',
+        undefined,
+        undefined,
+        { requireAuth: false }
+      );
+    } catch (error: any) {
+      // If unauthorized and user is logged in, retry with auth
+      if ((error?.status === 401 || error?.status === 403) && auth.isAuthenticated()) {
+        return this.request<PromptWithStats>(
+          API_ENDPOINTS.prompts.byPath(username, slug)
+        );
+      }
       throw error;
     }
   }
 
   async updatePrompt(id: number, data: PromptUpdate): Promise<Prompt> {
-    try {
-      const endpoint = API_ENDPOINTS.prompts.update(id);
-      return await api.put<Prompt>(endpoint, data);
-    } catch (error) {
-      console.error(`Error updating prompt ${id}:`, error);
-      throw error;
-    }
+    return this.request<Prompt>(
+      API_ENDPOINTS.prompts.update(id),
+      'PUT',
+      data
+    );
   }
 
   async deletePrompt(id: number): Promise<void> {
-    try {
-      const endpoint = API_ENDPOINTS.prompts.delete(id);
-      await api.delete(endpoint);
-    } catch (error) {
-      console.error(`Error deleting prompt ${id}:`, error);
-      throw error;
-    }
+    return this.request<void>(API_ENDPOINTS.prompts.delete(id), 'DELETE');
   }
 
-  // Template Management
   async getTemplates(): Promise<TemplateType[]> {
-    try {
-      return await api.get<TemplateType[]>(API_ENDPOINTS.prompts.templates);
-    } catch (error) {
-      console.error('Error fetching templates:', error);
-      throw error;
-    }
+    return this.request<TemplateType[]>(
+      API_ENDPOINTS.prompts.templates,
+      'GET',
+      undefined,
+      undefined,
+      { requireAuth: false }
+    );
   }
 
   async validateTemplate(
     template_type: TemplateType,
     custom_template?: string
   ): Promise<TemplateValidationResponse> {
-    try {
-      return await api.post<TemplateValidationResponse>(
-        API_ENDPOINTS.prompts.validateTemplate,
-        {
-          template_type,
-          custom_template,
-        }
-      );
-    } catch (error) {
-      console.error('Error validating template:', error);
-      throw error;
-    }
+    return this.request<TemplateValidationResponse>(
+      API_ENDPOINTS.prompts.validateTemplate,
+      'POST',
+      {
+        template_type,
+        custom_template,
+      }
+    );
   }
 
-  // News Management
   async getPromptNews(promptId: number): Promise<any> {
-    try {
-      const endpoint = API_ENDPOINTS.prompts.news(promptId);
-      return await api.get(endpoint);
-    } catch (error) {
-      console.error(`Error fetching news for prompt ${promptId}:`, error);
-      throw error;
-    }
+    return this.request<any>(API_ENDPOINTS.prompts.news(promptId));
   }
 
   // Helper Methods
@@ -205,14 +231,14 @@ class PromptsService {
     return new Date(dateString).toLocaleString();
   }
 
-  // Visibility Helpers
   canAccessPrompt(
     prompt: Prompt,
     isAuthenticated: boolean = auth.isAuthenticated()
   ): boolean {
-    const isOwner = isAuthenticated && prompt.user_id === auth.getCurrentUserId();
-    const visibility = auth.checkVisibility(prompt.visibility, isAuthenticated, isOwner);
-    return visibility.canView;
+    const isOwner = isAuthenticated && prompt.user_id === (auth as any).getCurrentUserId();
+    return prompt.visibility === 'public' || 
+           (prompt.visibility === 'internal' && isAuthenticated) ||
+           (prompt.visibility === 'private' && isOwner);
   }
 }
 
