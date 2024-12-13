@@ -12,11 +12,13 @@ WhatsNews is an intelligent news aggregation and summarization platform that use
 ## 🚀 Features (Planned/In Development)
 
 - **Custom News Prompts**: Create personalized prompts to get news summaries exactly how you want them
-- **Multiple Time Windows**: Get updates in 10-minute intervals, hourly, or daily digests
+- **Multiple Time Windows**: Get updates in hourly intervals or daily digests
 - **Smart Summarization**: Leverages LLMs to provide intelligent, context-aware news summaries
+- **Prompt Templates**: Generate news in different reporting formats like summaries, analysis, bulletpoints, interviews, etc.
 - **RSS Integration**: Aggregate news from multiple RSS feeds (more sources coming soon)
 - **Flexible Categories**: Cross-category news consolidation based on your interests
 - **User Management**: Personal account to manage your prompts and preferences
+- **Prompt Privacy**: Make the generated news public or keep it private
 
 ## 🛠️ Tech Stack
 
@@ -32,10 +34,10 @@ WhatsNews is in early development. Here's what's working and what's not:
 
 ✅ Project Structure  
 ✅ Basic Architecture Design  
-⏳ FastAPI Backend (In Progress)  
+✅ FastAPI Backend (In Progress)  
 ✅ Database Models (In Progress)  
-⏳ LLM Integration  
-⏳ RSS Feed Integration  
+✅ LLM Integration  
+✅ RSS Feed Integration  
 ⏳ Frontend Development  
 ✅ User Authentication  
 
