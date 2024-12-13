@@ -10,23 +10,33 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Trash, Edit, Copy, Clock, FileText } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { MoreHorizontal, Trash, Edit, Copy, Clock, FileText, Globe, Lock, Users } from 'lucide-react';
 import { promptsService, Prompt, PromptWithStats } from '@/services/promptsService';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
+import { VisibilityType } from '@/types/api';
 
 interface PromptCardProps {
   prompt: Prompt | PromptWithStats;
   onEdit?: (prompt: Prompt) => void;
   onDelete?: (id: number) => void;
   disabled?: boolean;
+  username: string;
 }
+
+const visibilityConfig = {
+  private: { icon: Lock, className: 'bg-slate-500' },
+  internal: { icon: Users, className: 'bg-blue-500' },
+  public: { icon: Globe, className: 'bg-green-500' }
+} as const;
 
 export const PromptCard: FC<PromptCardProps> = ({
   prompt,
   onEdit,
   onDelete,
   disabled = false,
+  username,
 }) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +66,10 @@ export const PromptCard: FC<PromptCardProps> = ({
     }
   };
 
+  const handleViewDetails = () => {
+    router.push(`/${username}/${prompt.slug}`);
+  };
+
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -71,6 +85,8 @@ export const PromptCard: FC<PromptCardProps> = ({
     return 0;
   };
 
+  const VisibilityIcon = visibilityConfig[prompt.visibility].icon;
+
   return (
     <Card className="relative overflow-hidden">
       {isLoading && (
@@ -81,9 +97,18 @@ export const PromptCard: FC<PromptCardProps> = ({
       
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex flex-col space-y-1.5">
-          <h3 className="font-semibold text-base leading-none tracking-tight">
-            {prompt.name}
-          </h3>
+          <div className="flex items-center space-x-2">
+            <h3 className="font-semibold text-base leading-none tracking-tight">
+              {prompt.name}
+            </h3>
+            <Badge 
+              variant="secondary"
+              className={`flex items-center space-x-1 ${visibilityConfig[prompt.visibility].className}`}
+            >
+              <VisibilityIcon className="h-3 w-3" />
+              <span className="capitalize">{prompt.visibility}</span>
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground">
             Created {formatDate(prompt.created_at)}
           </p>
@@ -101,11 +126,15 @@ export const PromptCard: FC<PromptCardProps> = ({
               <Edit className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => router.push(`/prompts/${prompt.id}`)}
-            >
+            <DropdownMenuItem onClick={handleViewDetails}>
               <FileText className="mr-2 h-4 w-4" />
               View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/${username}/${prompt.slug}`);
+            }}>
+              <Copy className="mr-2 h-4 w-4" />
+              Copy Link
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -144,6 +173,17 @@ export const PromptCard: FC<PromptCardProps> = ({
             <FileText className="mr-1 h-4 w-4" />
             <span>{getNewsCount()} news items</span>
           </div>
+        </div>
+
+        <div className="flex items-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={handleViewDetails}
+          >
+            View Details →
+          </Button>
         </div>
       </CardFooter>
     </Card>

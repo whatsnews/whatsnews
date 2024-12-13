@@ -28,7 +28,11 @@ export const API_ENDPOINTS = {
     delete: (id: number) => `/prompts/${id}`,
     templates: '/prompts/templates',
     validateTemplate: '/prompts/validate-template',
-    news: (id: number) => `/prompts/${id}/news`
+    news: (id: number) => `/prompts/${id}/news`,
+    // New endpoints
+    byPath: (username: string, slug: string) => `/prompts/by-path/${username}/${slug}`,
+    public: '/prompts/public',
+    internal: '/prompts/internal'
   },
   news: {
     list: '/news',

@@ -32,14 +32,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Plus, AlertCircle } from 'lucide-react';
+import { Loader2, Plus, AlertCircle, Globe, Lock, Users } from 'lucide-react';
 import { promptsService, TemplateType } from '@/services/promptsService';
+import { VisibilityType } from '@/types/api';
 
 // Form validation schema
 const promptSchema = z.object({
   name: z.string().min(1, 'Name is required').max(255, 'Name is too long'),
   content: z.string().min(1, 'Content is required').max(1000, 'Content is too long'),
   template_type: z.enum(['summary', 'analysis', 'bullet_points', 'narrative'] as const),
+  visibility: z.enum(['private', 'internal', 'public'] as const),
   custom_template: z.string().optional(),
 });
 
@@ -49,6 +51,27 @@ interface CreatePromptDialogProps {
   onPromptCreated?: () => void;
   disabled?: boolean;
 }
+
+const visibilityOptions = [
+  {
+    value: 'private',
+    label: 'Private',
+    description: 'Only you can see this prompt',
+    icon: Lock
+  },
+  {
+    value: 'internal',
+    label: 'Internal',
+    description: 'All registered users can see this prompt',
+    icon: Users
+  },
+  {
+    value: 'public',
+    label: 'Public',
+    description: 'Anyone with the link can see this prompt',
+    icon: Globe
+  }
+] as const;
 
 export function CreatePromptDialog({
   onPromptCreated,
@@ -64,6 +87,7 @@ export function CreatePromptDialog({
       name: '',
       content: '',
       template_type: 'summary',
+      visibility: 'private' as VisibilityType,
       custom_template: '',
     },
   });
@@ -178,6 +202,45 @@ export function CreatePromptDialog({
                   </Select>
                   <FormDescription>
                     Choose how you want your news to be formatted
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="visibility"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Visibility</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select visibility" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {visibilityOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center">
+                            <option.icon className="mr-2 h-4 w-4" />
+                            <div className="flex flex-col">
+                              <span>{option.label}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {option.description}
+                              </span>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Control who can access this prompt
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 from app.schemas.base import TimestampedSchema
 from app.models.prompt import TemplateType, VisibilityType
+from slugify import slugify
 
 class PromptBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Name of the prompt")
@@ -18,9 +19,17 @@ class PromptBase(BaseModel):
             raise ValueError("Custom template is required for narrative template type")
         return v
 
+    @validator('name')
+    def validate_name_for_slug(cls, v):
+        if not v.strip():
+            raise ValueError("Name cannot be empty or just whitespace")
+        if len(slugify(v)) == 0:
+            raise ValueError("Name must contain at least one alphanumeric character")
+        return v
+
 class PromptCreate(PromptBase):
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "Daily Tech News",
                 "content": "Latest developments in AI and technology",
@@ -43,8 +52,17 @@ class PromptUpdate(BaseModel):
             raise ValueError("Custom template cannot be empty for narrative template type")
         return v
 
+    @validator('name')
+    def validate_name_for_slug(cls, v):
+        if v is not None:
+            if not v.strip():
+                raise ValueError("Name cannot be empty or just whitespace")
+            if len(slugify(v)) == 0:
+                raise ValueError("Name must contain at least one alphanumeric character")
+        return v
+
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "Updated Tech News",
                 "content": "Updated content focus on AI developments",
@@ -53,16 +71,21 @@ class PromptUpdate(BaseModel):
             }
         }
 
+class PromptSlug(BaseModel):
+    slug: str = Field(..., description="URL-friendly slug for the prompt")
+
 class Prompt(PromptBase, TimestampedSchema):
     id: int = Field(..., description="Unique identifier of the prompt")
+    slug: str = Field(..., description="URL-friendly slug for the prompt")
     user_id: int = Field(..., description="ID of the user who owns this prompt")
 
     class Config:
-        orm_mode = True
-        schema_extra = {
+        from_attributes = True
+        json_schema_extra = {
             "example": {
                 "id": 1,
                 "name": "Daily Tech News",
+                "slug": "daily-tech-news",
                 "content": "Latest developments in AI and technology",
                 "template_type": "summary",
                 "custom_template": None,
@@ -83,10 +106,11 @@ class PromptWithStats(Prompt):
     news_count: NewsCount = Field(..., description="News statistics for this prompt")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": 1,
                 "name": "Daily Tech News",
+                "slug": "daily-tech-news",
                 "content": "Latest developments in AI and technology",
                 "template_type": "summary",
                 "custom_template": None,
@@ -108,7 +132,7 @@ class PromptTemplateValidation(BaseModel):
     custom_template: Optional[str] = None
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "template_type": "narrative",
                 "custom_template": "Custom template with {placeholder}"
@@ -120,7 +144,7 @@ class PromptTemplateValidationResponse(BaseModel):
     errors: Optional[Dict[str, Any]] = None
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "valid": True,
                 "errors": None

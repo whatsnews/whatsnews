@@ -1,6 +1,6 @@
 # app/api/v1/endpoints/prompts.py
 from typing import List, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status, Path
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -32,6 +32,31 @@ async def create_prompt(
     """
     try:
         prompt = prompt_service.create_prompt(prompt_in, current_user)
+        return prompt
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.get("/by-path/{username}/{slug}", response_model=PromptWithStats)
+async def get_prompt_by_path(
+    username: str = Path(..., description="Username of the prompt owner"),
+    slug: str = Path(..., description="Slug of the prompt"),
+    prompt_service: PromptService = Depends(get_prompt_service),
+    current_user: Optional[User] = Depends(get_optional_current_user)
+) -> Any:
+    """
+    Get prompt by username and slug.
+    Access control based on visibility:
+    - Private: Only owner can access
+    - Internal: Any authenticated user can access
+    - Public: Anyone can access
+    """
+    try:
+        prompt = prompt_service.get_prompt_by_username_and_slug(username, slug, current_user)
         return prompt
     except HTTPException as e:
         raise e

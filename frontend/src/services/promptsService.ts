@@ -2,8 +2,14 @@
 
 import { api } from './api';
 import { API_ENDPOINTS } from '@/config/api';
-
-export type TemplateType = 'summary' | 'analysis' | 'bullet_points' | 'narrative';
+import type { 
+  Prompt, 
+  PromptCreate, 
+  PromptUpdate, 
+  PromptWithStats,
+  TemplateType,
+  VisibilityType 
+} from '@/types/api';
 
 export interface NewsStats {
   total: number;
@@ -12,39 +18,12 @@ export interface NewsStats {
   last_update?: string;
 }
 
-export interface Prompt {
-  id: number;
-  name: string;
-  content: string;
-  template_type: TemplateType;
-  custom_template?: string;
-  user_id: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PromptWithStats extends Prompt {
-  news_count: NewsStats;
-}
-
-export interface PromptCreate {
-  name: string;
-  content: string;
-  template_type: TemplateType;
-  custom_template?: string;
-}
-
-export interface PromptUpdate {
-  name?: string;
-  content?: string;
-  template_type?: TemplateType;
-  custom_template?: string;
-}
-
 export interface PromptListParams {
   skip?: number;
   limit?: number;
   search?: string;
+  include_internal?: boolean;
+  include_public?: boolean;
 }
 
 export interface TemplateValidationResponse {
@@ -68,9 +47,37 @@ class PromptsService {
         skip: params?.skip?.toString(),
         limit: params?.limit?.toString(),
         search: params?.search,
+        include_internal: params?.include_internal?.toString(),
+        include_public: params?.include_public?.toString(),
       });
     } catch (error) {
       console.error('Error fetching prompts:', error);
+      throw error;
+    }
+  }
+
+  async getPublicPrompts(params?: PromptListParams): Promise<Prompt[]> {
+    try {
+      return await api.get<Prompt[]>(API_ENDPOINTS.prompts.public, {
+        skip: params?.skip?.toString(),
+        limit: params?.limit?.toString(),
+        search: params?.search,
+      });
+    } catch (error) {
+      console.error('Error fetching public prompts:', error);
+      throw error;
+    }
+  }
+
+  async getInternalPrompts(params?: PromptListParams): Promise<Prompt[]> {
+    try {
+      return await api.get<Prompt[]>(API_ENDPOINTS.prompts.internal, {
+        skip: params?.skip?.toString(),
+        limit: params?.limit?.toString(),
+        search: params?.search,
+      });
+    } catch (error) {
+      console.error('Error fetching internal prompts:', error);
       throw error;
     }
   }
@@ -81,6 +88,16 @@ class PromptsService {
       return await api.get<PromptWithStats>(endpoint);
     } catch (error) {
       console.error(`Error fetching prompt ${id}:`, error);
+      throw error;
+    }
+  }
+
+  async getPromptByPath(username: string, slug: string): Promise<PromptWithStats> {
+    try {
+      const endpoint = API_ENDPOINTS.prompts.byPath(username, slug);
+      return await api.get<PromptWithStats>(endpoint);
+    } catch (error) {
+      console.error(`Error fetching prompt ${username}/${slug}:`, error);
       throw error;
     }
   }
@@ -147,12 +164,25 @@ class PromptsService {
     return ['summary', 'analysis', 'bullet_points', 'narrative'].includes(type);
   }
 
+  isValidVisibilityType(type: string): type is VisibilityType {
+    return ['private', 'internal', 'public'].includes(type);
+  }
+
   getTemplateTypeLabel(type: TemplateType): string {
     const labels: Record<TemplateType, string> = {
       summary: 'Summary',
       analysis: 'Analysis',
       bullet_points: 'Bullet Points',
       narrative: 'Narrative'
+    };
+    return labels[type] || type;
+  }
+
+  getVisibilityLabel(type: VisibilityType): string {
+    const labels: Record<VisibilityType, string> = {
+      private: 'Private',
+      internal: 'Internal',
+      public: 'Public'
     };
     return labels[type] || type;
   }
