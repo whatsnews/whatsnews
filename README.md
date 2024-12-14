@@ -1,3 +1,5 @@
+'The development is this project is discontinued and this repository will be archived. Working on a version 2.0 of same product concept but with better features. Expect production ready version in December 2025`
+
 # WhatsNews AI 🗞️
 ### "Take back your news!"
 
