@@ -184,15 +184,20 @@ class PromptService:
                 detail="Failed to fetch prompts"
             ) from e
 
+# app/services/prompt.py
+
+    # app/services/prompt.py
+
     def get_public_prompts(
         self,
         skip: int = 0,
         limit: int = 100,
         search: Optional[str] = None
     ) -> List[Prompt]:
-        """Get list of public prompts without auth requirement."""
+        """Get list of public prompts without auth check."""
         try:
-            query = self.db.query(Prompt).filter(Prompt.visibility == VisibilityType.PUBLIC)
+            # Don't use with statement to avoid session issues
+            query = self.db.query(Prompt).filter(Prompt.visibility == 'PUBLIC')
 
             if search:
                 search_term = f"%{search}%"
@@ -204,21 +209,15 @@ class PromptService:
                     )
                 )
 
-            prompts = (
-                query
-                .order_by(Prompt.created_at.desc())
-                .offset(skip)
-                .limit(limit)
-                .all()
-            )
+            prompts = query.order_by(Prompt.created_at.desc()).offset(skip).limit(limit).all()
+            
+            # Ensure the session is closed properly
+            self.db.close()
             
             return prompts
         except Exception as e:
             self.db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to fetch public prompts"
-            ) from e
+            raise e
 
     def get_internal_prompts(
         self,

@@ -13,10 +13,12 @@ class TemplateType(str, enum.Enum):
     NARRATIVE = "narrative"
 
 
+# app/models/prompt.py
+
 class VisibilityType(str, enum.Enum):
-    PRIVATE = "private"
-    INTERNAL = "internal"
-    PUBLIC = "public"
+    PRIVATE = "PRIVATE"
+    INTERNAL = "INTERNAL"
+    PUBLIC = "PUBLIC"
 
 
 class Prompt(TimestampedModel):

@@ -5,4 +5,3 @@
 
 ***Next***
 - [ ] Prompt icons by prompt type
-- [ ]

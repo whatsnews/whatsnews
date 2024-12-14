@@ -46,12 +46,11 @@ api_router.include_router(
     }
 )
 
-# Include prompts router (authentication required)
+# Include prompts router (mixed authentication - removed global dependency)
 api_router.include_router(
     prompts.router,
     prefix="/prompts",
     tags=["prompts"],
-    dependencies=[Depends(get_current_active_user)],
     responses={
         **common_responses,
         200: {"description": "Successful prompt operation"},
@@ -60,12 +59,11 @@ api_router.include_router(
     }
 )
 
-# Include news router (authentication required)
+# Include news router (mixed authentication - removed global dependency)
 api_router.include_router(
     news.router,
     prefix="/news",
     tags=["news"],
-    dependencies=[Depends(get_current_active_user)],
     responses={
         **common_responses,
         200: {"description": "Successful news operation"},
@@ -105,9 +103,7 @@ async def health_check() -> Any:
         return {
             "status": "healthy",
             "version": settings.VERSION,
-            "api_v1_str": settings.API_V1_STR,
-            "environment": settings.ENVIRONMENT,
-            "debug_mode": settings.DEBUG
+            "api_v1_str": settings.API_V1_STR
         }
     except Exception:
         raise HTTPException(
