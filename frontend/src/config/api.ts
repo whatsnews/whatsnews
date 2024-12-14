@@ -28,8 +28,6 @@ export const API_ENDPOINTS = {
     delete: (id: number) => `/prompts/${id}`,
     templates: '/prompts/templates',
     validateTemplate: '/prompts/validate-template',
-    news: (id: number) => `/prompts/${id}/news`,
-    // New endpoints
     byPath: (username: string, slug: string) => `/prompts/by-path/${username}/${slug}`,
     public: '/prompts/public',
     internal: '/prompts/internal'
@@ -39,7 +37,12 @@ export const API_ENDPOINTS = {
     create: '/news',
     detail: (id: number) => `/news/${id}`,
     delete: (id: number) => `/news/${id}`,
-    latest: (promptId: number) => `/news/latest/${promptId}`
+    latest: (promptId: number) => `/news/latest/${promptId}`,
+    // New public endpoints
+    public: '/news/public',
+    publicLatest: '/news/public/latest',
+    byPromptPath: (username: string, promptSlug: string) => `/news/by-path/${username}/${promptSlug}`,
+    byPrompt: (promptId: number) => `/news/by-prompt/${promptId}`
   }
 } as const;
 

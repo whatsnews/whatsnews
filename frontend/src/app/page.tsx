@@ -3,10 +3,11 @@ import { cookies } from 'next/headers';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { promptsService } from '@/services/promptsService';
+import { serverAuth } from '@/lib/server-auth';
+import { PublicPromptCard } from '@/components/prompts/PublicPromptCard';
 
 export default async function HomePage() {
-  const token = cookies().get('token');
-  const isAuthenticated = !!token;
+  const isAuthenticated = await serverAuth.isAuthenticated();
 
   try {
     // Fetch public prompts for the landing page
@@ -48,18 +49,10 @@ export default async function HomePage() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {publicPrompts.map((prompt) => (
-                <div key={prompt.id} className="rounded-lg border p-4">
-                  <h3 className="font-semibold">{prompt.name}</h3>
-                  <p className="text-muted-foreground line-clamp-2">
-                    {prompt.content}
-                  </p>
-                  <Link 
-                    href={`/${prompt.user?.username}/${prompt.slug}`}
-                    className="text-sm text-primary hover:underline mt-2 block"
-                  >
-                    View Details →
-                  </Link>
-                </div>
+                <PublicPromptCard 
+                  key={prompt.id} 
+                  prompt={prompt} 
+                />
               ))}
             </div>
           </section>

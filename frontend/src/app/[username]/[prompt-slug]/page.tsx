@@ -7,10 +7,10 @@ import { serverAuth } from '@/lib/server-auth';
 import type { PromptWithStats } from '@/types/api';
 
 interface PageProps {
-  params: {
+  params: Promise<{
     username: string;
     'prompt-slug': string;
-  };
+  }>;
 }
 
 async function getPromptData(
@@ -19,19 +19,12 @@ async function getPromptData(
   token?: string
 ): Promise<PromptWithStats | null> {
   try {
-    // First try without auth for public prompts
-    const prompt = await promptsService.getPromptByPath(username, slug);
+    const withAuth = !!token;
+    const prompt = await promptsService.getPromptByPath(username, slug, withAuth);
     return prompt;
   } catch (error: any) {
-    // If unauthorized and we have a token, retry with auth
-    if (error?.status === 401 && token) {
-      try {
-        const prompt = await promptsService.getPromptByPath(username, slug, true);
-        return prompt;
-      } catch (retryError) {
-        console.error('Error fetching prompt with auth:', retryError);
-        return null;
-      }
+    if (error?.status === 401 && !token) {
+      return null;
     }
     console.error('Error fetching prompt:', error);
     return null;
@@ -39,7 +32,8 @@ async function getPromptData(
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { username, 'prompt-slug': slug } = params;
+  const resolvedParams = await params;
+  const { username, 'prompt-slug': slug } = resolvedParams;
   const token = await serverAuth.getServerToken();
   const prompt = await getPromptData(username, slug, token);
 
@@ -63,7 +57,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function PromptPage({ params }: PageProps) {
-  const { username, 'prompt-slug': slug } = params;
+  const resolvedParams = await params;
+  const { username, 'prompt-slug': slug } = resolvedParams;
   const token = await serverAuth.getServerToken();
   const prompt = await getPromptData(username, slug, token);
   const currentUser = token ? await serverAuth.getCurrentUser() : null;

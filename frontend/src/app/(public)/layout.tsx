@@ -3,10 +3,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, User, LogIn, LogOut } from 'lucide-react';
+import { Menu, User, LogIn, LogOut, Newspaper, Home } from 'lucide-react';
 import { auth } from '@/lib/auth';
 
 interface PublicLayoutProps {
@@ -15,6 +15,7 @@ interface PublicLayoutProps {
 
 export default function PublicLayout({ children }: PublicLayoutProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -32,6 +33,27 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
   // Prevent hydration mismatch
   if (!isMounted) return null;
 
+  const navItems = [
+    {
+      href: '/',
+      label: 'Home',
+      icon: Home,
+      show: true
+    },
+    {
+      href: '/explore',
+      label: 'Explore',
+      icon: Newspaper,
+      show: true
+    },
+    {
+      href: '/prompts',
+      label: 'My Prompts',
+      icon: User,
+      show: isAuthenticated
+    }
+  ];
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Navigation Header */}
@@ -46,19 +68,26 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-4">
-            {isAuthenticated ? (
-              <>
-                <Button asChild variant="ghost">
-                  <Link href="/prompts">
-                    <User className="mr-2 h-4 w-4" />
-                    My Prompts
+            {navItems.map((item) => 
+              item.show && (
+                <Button
+                  key={item.href}
+                  asChild
+                  variant={pathname === item.href ? "default" : "ghost"}
+                >
+                  <Link href={item.href}>
+                    <item.icon className="mr-2 h-4 w-4" />
+                    {item.label}
                   </Link>
                 </Button>
-                <Button variant="outline" onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Logout
-                </Button>
-              </>
+              )
+            )}
+
+            {isAuthenticated ? (
+              <Button variant="outline" onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </Button>
             ) : (
               <>
                 <Button asChild variant="ghost">
@@ -84,19 +113,26 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px]">
               <nav className="flex flex-col space-y-4">
-                {isAuthenticated ? (
-                  <>
-                    <Button asChild variant="ghost">
-                      <Link href="/prompts">
-                        <User className="mr-2 h-4 w-4" />
-                        My Prompts
+                {navItems.map((item) => 
+                  item.show && (
+                    <Button
+                      key={item.href}
+                      asChild
+                      variant={pathname === item.href ? "default" : "ghost"}
+                    >
+                      <Link href={item.href}>
+                        <item.icon className="mr-2 h-4 w-4" />
+                        {item.label}
                       </Link>
                     </Button>
-                    <Button variant="outline" onClick={handleLogout}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Logout
-                    </Button>
-                  </>
+                  )
+                )}
+
+                {isAuthenticated ? (
+                  <Button variant="outline" onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </Button>
                 ) : (
                   <>
                     <Button asChild variant="ghost">

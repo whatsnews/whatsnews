@@ -4,10 +4,12 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { Button } from '@/components/ui/button';
 import { PromptCard } from '@/components/prompts/PromptCard';
-import { Alert, AlertDescription } from '@/components/ui/card';
-import { Newspaper, AlertCircle, Loader2 } from 'lucide-react';
+import { NewsCard } from '@/components/news/NewsCard';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Newspaper, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import { promptsService } from '@/services/promptsService';
-import type { Prompt } from '@/types/api';
+import { newsService } from '@/services/newsService';
+import type { Prompt, News } from '@/types/api';
 
 async function getPublicPrompts() {
   try {
@@ -20,9 +22,21 @@ async function getPublicPrompts() {
   }
 }
 
+async function getLatestPublicNews() {
+  try {
+    return await newsService.getLatestPublicNews(3);  // Get latest 3 news items
+  } catch (error) {
+    console.error('Error fetching public news:', error);
+    return [];
+  }
+}
+
 export default async function PublicLandingPage() {
   const isAuthenticated = !!cookies().get('token');
-  const prompts = await getPublicPrompts();
+  const [prompts, latestNews] = await Promise.all([
+    getPublicPrompts(),
+    getLatestPublicNews()
+  ]);
 
   return (
     <div className="space-y-12">
@@ -55,6 +69,46 @@ export default async function PublicLandingPage() {
             </Button>
           )}
         </div>
+      </section>
+
+      {/* Latest News Section */}
+      <section className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Latest Updates
+          </h2>
+          <Button asChild variant="ghost">
+            <Link href="/explore">View all →</Link>
+          </Button>
+        </div>
+
+        <Suspense
+          fallback={
+            <div className="grid gap-6">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-[200px] rounded-lg bg-muted animate-pulse"
+                />
+              ))}
+            </div>
+          }
+        >
+          {latestNews.length > 0 ? (
+            <div className="grid gap-6">
+              {latestNews.map((news) => (
+                <NewsCard key={news.id} news={news} />
+              ))}
+            </div>
+          ) : (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                No public news available at the moment.
+              </AlertDescription>
+            </Alert>
+          )}
+        </Suspense>
       </section>
 
       {/* Featured Prompts Section */}
@@ -136,7 +190,7 @@ const features = [
   {
     title: 'AI-Powered Summaries',
     description: 'Get concise, relevant summaries powered by advanced AI',
-    icon: Loader2,
+    icon: Sparkles,
   },
   {
     title: 'Real-time Updates',

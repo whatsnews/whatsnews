@@ -1,7 +1,13 @@
 // src/services/newsService.ts
 import { api } from './api';
 import { API_ENDPOINTS } from '@/config/api';
-import type { News, NewsCreate, NewsResponse, UpdateFrequency } from '@/types/api';
+import type { 
+  News, 
+  NewsCreate, 
+  NewsResponse, 
+  UpdateFrequency,
+  NewsListResponse
+} from '@/types/api';
 
 interface GetNewsParams {
   prompt_id?: number;
@@ -16,12 +22,46 @@ interface GenerateNewsParams {
 }
 
 export const newsService = {
+  // Public news methods
+  async getPublicNews(params?: GetNewsParams): Promise<NewsListResponse> {
+    return api.get<NewsListResponse>(
+      API_ENDPOINTS.news.public,
+      params as Record<string, string>,
+      { skipAuth: true }  // Skip authentication for public endpoints
+    );
+  },
+
+  async getLatestPublicNews(limit: number = 10, frequency?: UpdateFrequency): Promise<News[]> {
+    const params = {
+      limit: limit.toString(),
+      ...(frequency && { frequency })
+    };
+    return api.get<News[]>(
+      API_ENDPOINTS.news.publicLatest,
+      params,
+      { skipAuth: true }
+    );
+  },
+
+  async getNewsByPromptPath(
+    username: string,
+    promptSlug: string,
+    params?: Omit<GetNewsParams, 'prompt_id'>
+  ): Promise<NewsListResponse> {
+    return api.get<NewsListResponse>(
+      API_ENDPOINTS.news.byPromptPath(username, promptSlug),
+      params as Record<string, string>,
+      { skipAuth: true }  // Will use token if available
+    );
+  },
+
+  // Authenticated news methods
   async getNews(params?: GetNewsParams): Promise<News[]> {
-    return api.get<News[]>(API_ENDPOINTS.news.list, params);
+    return api.get<News[]>(API_ENDPOINTS.news.list, params as Record<string, string>);
   },
 
   async getNewsById(id: number): Promise<News> {
-    return api.get<News>(API_ENDPOINTS.news.byId(id));
+    return api.get<News>(API_ENDPOINTS.news.detail(id));
   },
 
   async createNews(data: NewsCreate): Promise<NewsResponse> {
@@ -29,7 +69,7 @@ export const newsService = {
   },
 
   async deleteNews(id: number): Promise<void> {
-    return api.delete(API_ENDPOINTS.news.byId(id));
+    return api.delete(API_ENDPOINTS.news.detail(id));
   },
 
   async getLatestNews(promptId: number, frequency: UpdateFrequency): Promise<News> {
@@ -49,7 +89,7 @@ export const newsService = {
       frequency,
       limit: 100
     };
-    return api.get<News[]>(API_ENDPOINTS.news.list, params);
+    return api.get<News[]>(API_ENDPOINTS.news.list, params as Record<string, string>);
   },
 
   async refreshNews(promptId: number, frequency: UpdateFrequency): Promise<NewsResponse> {
@@ -62,8 +102,6 @@ export const newsService = {
 
   formatFrequency(frequency: UpdateFrequency): string {
     switch (frequency) {
-      case "30_minutes":
-        return "30 minutes";
       case "hourly":
         return "Hourly";
       case "daily":
@@ -71,5 +109,10 @@ export const newsService = {
       default:
         return frequency.replace('_', ' ');
     }
+  },
+
+  // Helper methods
+  getFrequencyLabel(frequency: UpdateFrequency): string {
+    return frequency.charAt(0).toUpperCase() + frequency.slice(1);
   }
 };

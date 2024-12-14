@@ -55,22 +55,27 @@ class PromptsService {
     }
   }
 
-  async getPublicPrompts(params?: PromptListParams): Promise<Prompt[]> {
-    try {
-      return await api.get<Prompt[]>(
-        API_ENDPOINTS.prompts.public,
-        {
-          skip: params?.skip?.toString(),
-          limit: params?.limit?.toString(),
-          search: params?.search,
-        },
-        { skipAuth: true }
-      );
-    } catch (error) {
-      console.error('Error fetching public prompts:', error);
-      throw error;
-    }
+  // Update in src/services/promptsService.ts
+
+async getPublicPrompts(params?: PromptListParams): Promise<Prompt[]> {
+  try {
+    const queryParams = {
+      skip: params?.skip?.toString(),
+      limit: params?.limit?.toString(),
+      search: params?.search,
+      include_user: 'true'  // Add this parameter
+    };
+
+    return await api.get<Prompt[]>(
+      API_ENDPOINTS.prompts.public,
+      queryParams,
+      { skipAuth: true }
+    );
+  } catch (error) {
+    console.error('Error fetching public prompts:', error);
+    throw error;
   }
+}
 
   async getInternalPrompts(params?: PromptListParams): Promise<Prompt[]> {
     try {
@@ -94,21 +99,17 @@ class PromptsService {
     }
   }
 
-  async getPromptByPath(username: string, slug: string): Promise<PromptWithStats> {
+  async getPromptByPath(
+    username: string, 
+    slug: string, 
+    withAuth: boolean = false
+  ): Promise<PromptWithStats> {
     try {
-      // First try without auth for public prompts
-      return await api.get<PromptWithStats>(
-        API_ENDPOINTS.prompts.byPath(username, slug),
-        undefined,
-        { skipAuth: true }
-      );
-    } catch (error: any) {
-      if (error?.status === 401) {
-        // If unauthorized and we have auth, retry with auth
-        return await api.get<PromptWithStats>(
-          API_ENDPOINTS.prompts.byPath(username, slug)
-        );
-      }
+      const endpoint = API_ENDPOINTS.prompts.byPath(username, slug);
+      const config = withAuth ? {} : { skipAuth: true };
+      
+      return await api.get<PromptWithStats>(endpoint, undefined, config);
+    } catch (error) {
       console.error(`Error fetching prompt ${username}/${slug}:`, error);
       throw error;
     }

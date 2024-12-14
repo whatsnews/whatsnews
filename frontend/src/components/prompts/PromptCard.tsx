@@ -44,6 +44,16 @@ export const PromptCard: FC<PromptCardProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Safe path generation
+  const getPromptPath = () => {
+    if (!prompt.slug) return '#';
+    // For public prompts without user info
+    if (!prompt.user?.username) {
+      return `/prompts/${prompt.id}`;
+    }
+    return `/${prompt.user.username}/${prompt.slug}`;
+  };
+
   const handleEdit = () => {
     if (onEdit) {
       onEdit(prompt);
@@ -69,7 +79,8 @@ export const PromptCard: FC<PromptCardProps> = ({
   };
 
   const copyToClipboard = () => {
-    const url = `${window.location.origin}/${prompt.user?.username}/${prompt.slug}`;
+    const path = getPromptPath();
+    const url = `${window.location.origin}${path}`;
     navigator.clipboard.writeText(url);
   };
 
@@ -88,6 +99,8 @@ export const PromptCard: FC<PromptCardProps> = ({
     return 0;
   };
 
+  const promptPath = getPromptPath();
+
   return (
     <Card className={`relative overflow-hidden ${className}`}>
       {isLoading && (
@@ -99,20 +112,24 @@ export const PromptCard: FC<PromptCardProps> = ({
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
         <div className="space-y-2">
           <Link 
-            href={`/${prompt.user?.username}/${prompt.slug}`}
+            href={promptPath}
             className="hover:underline font-medium text-lg"
           >
             {prompt.name}
           </Link>
           
           <div className="flex items-center space-x-2 text-sm">
-            <Link 
-              href={`/${prompt.user?.username}`}
-              className="text-muted-foreground hover:underline"
-            >
-              @{prompt.user?.username}
-            </Link>
-            <span className="text-muted-foreground">•</span>
+            {prompt.user?.username && (
+              <>
+                <Link 
+                  href={`/${prompt.user.username}`}
+                  className="text-muted-foreground hover:underline"
+                >
+                  @{prompt.user.username}
+                </Link>
+                <span className="text-muted-foreground">•</span>
+              </>
+            )}
             <span className="text-muted-foreground">
               {formatDate(prompt.created_at)}
             </span>
@@ -120,7 +137,7 @@ export const PromptCard: FC<PromptCardProps> = ({
           </div>
         </div>
 
-        {showActions && (
+        {showActions && prompt.user?.username && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild disabled={disabled}>
               <Button variant="ghost" className="h-8 w-8 p-0">
@@ -178,7 +195,7 @@ export const PromptCard: FC<PromptCardProps> = ({
         </div>
 
         <Link
-          href={`/${prompt.user?.username}/${prompt.slug}`}
+          href={promptPath}
           className="text-sm text-muted-foreground hover:text-primary transition-colors"
         >
           View Details →

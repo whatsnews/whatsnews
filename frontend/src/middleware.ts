@@ -3,18 +3,41 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // Define route patterns
-const publicRoutes = ['/login', '/signup'];
-const protectedRoutes = ['/prompts', '/news', '/settings'];
+const publicRoutes = [
+  '/login',
+  '/signup',
+  '/public',
+  '/api/news/public',
+  '/api/news/public/latest',
+  '/api/prompts/public'
+];
+
+const protectedRoutes = [
+  '/prompts',
+  '/news',
+  '/settings'
+];
+
+// Helper to check if it's a public API route
+const isPublicApiRoute = (pathname: string) => {
+  return pathname.startsWith('/api/') && 
+    (pathname.includes('/public/') || pathname.includes('/by-path/'));
+};
 
 // Helper to check if it's a username/prompt route
 const isUsernamePromptRoute = (pathname: string) => {
   const parts = pathname.split('/').filter(Boolean);
-  return parts.length === 2;
+  return parts.length === 2 && !protectedRoutes.some(route => pathname.startsWith(route));
 };
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('token')?.value;
+
+  // Allow all API routes with /public/ in them
+  if (isPublicApiRoute(pathname)) {
+    return NextResponse.next();
+  }
 
   // Allow username/prompt routes without auth
   if (isUsernamePromptRoute(pathname)) {
@@ -34,16 +57,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();  // Allow access to landing page
   }
 
-  // Handle public routes (login/signup)
+  // Handle public routes (login/signup/public pages)
   if (publicRoutes.includes(pathname)) {
-    if (token) {
+    if (token && (pathname === '/login' || pathname === '/signup')) {
       return NextResponse.redirect(new URL('/news', request.url));
     }
     return NextResponse.next();
   }
 
-  // For dashboard routes, require authentication
-  if (!token) {
+  // For unmatched routes in protected areas, require authentication
+  if (!token && !publicRoutes.includes(pathname)) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -52,12 +75,20 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    /*
+     * Match all request paths except:
+     * 1. /api/ (API routes)
+     * 2. /_next/ (Next.js internals)
+     * 3. /.next/static (static files)
+     * 4. /favicon.ico, /sitemap.xml (static files)
+     */
+    '/((?!api/|_next/|_static/|_vercel|[\\w-]+\\.\\w+).*)',
     '/',
     '/login',
     '/signup',
     '/news',
     '/prompts/:path*',
     '/settings/:path*',
-    '/:username/:prompt-slug',
+    '/:username/:prompt-slug'
   ],
 };
